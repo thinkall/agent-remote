@@ -1,0 +1,125 @@
+// Types needed for API client and message rendering
+
+export namespace MessageV2 {
+  export type Role = "user" | "assistant";
+
+  export interface Info {
+    id: string;
+    sessionID: string;
+    role: Role;
+    time: {
+      created: number;
+      completed?: number;
+    };
+    cost?: number;
+    path?: {
+      root: string;
+      cwd: string;
+    };
+    summary?: string;
+    tokens?: {
+      input: number;
+      output: number;
+      cache: {
+        read: number;
+        write: number;
+      };
+      reasoning: number;
+    };
+    modelID?: string;
+    providerID?: string;
+    mode?: "build" | "plan";
+    system?: string;
+    error?: string;
+    parts: Part[];
+  }
+
+  export type Part =
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "text";
+        text: string;
+        synthetic?: boolean;
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "file";
+        mime: string;
+        filename: string;
+        url: string;
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "step-start";
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "step-finish";
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "snapshot";
+        files: string[];
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "patch";
+        content: string;
+        path: string;
+      }
+    | {
+        id: string;
+        messageID: string;
+        sessionID: string;
+        type: "tool";
+        callID: string;
+        tool: string;
+        state:
+          | {
+              status: "pending";
+            }
+          | {
+              status: "running";
+              input: any;
+              time: {
+                start: number;
+              };
+            }
+          | {
+              status: "completed";
+              input: any;
+              output: any;
+              title?: string;
+              time: {
+                start: number;
+                end: number;
+                duration: number;
+              };
+              metadata?: any;
+            };
+      };
+}
+
+export namespace Session {
+  export interface Info {
+    id: string;
+    title?: string;
+    version?: string;
+    time: {
+      created: number;
+      updated: number;
+    };
+  }
+}
