@@ -1,0 +1,387 @@
+import {
+  createMemo,
+  createSignal,
+  For,
+  Index,
+  Show,
+  Suspense,
+} from "solid-js";
+import { messageStore } from "../stores/message";
+import { Part, ProviderIcon } from "./share/part";
+import { useI18n } from "../lib/i18n";
+import type { MessageV2, Permission } from "../types/opencode";
+import { Spinner } from "./Spinner";
+
+import styles from "./SessionTurn.module.css";
+
+interface SessionTurnProps {
+  sessionID: string;
+  userMessage: MessageV2.Info;
+  assistantMessages: MessageV2.Info[];
+  isLastTurn: boolean;
+  isWorking: boolean;
+  onPermissionRespond?: (sessionID: string, permissionID: string, reply: Permission.Reply) => void;
+}
+
+/**
+ * Compute status text from the current part being processed
+ */
+function computeStatusFromPart(
+  part: MessageV2.Part | undefined,
+  t: () => any
+): string | undefined {
+  if (!part) return undefined;
+
+  if (part.type === "tool") {
+    switch (part.tool) {
+      case "task":
+        return t().steps.delegatingWork;
+      case "todowrite":
+      case "todoread":
+        return t().steps.planningNextSteps;
+      case "read":
+        return t().steps.gatheringContext;
+      case "list":
+      case "grep":
+      case "glob":
+        return t().steps.searchingCodebase;
+      case "webfetch":
+        return t().steps.searchingWeb;
+      case "edit":
+      case "write":
+        return t().steps.makingEdits;
+      case "bash":
+        return t().steps.runningCommands;
+      default:
+        return undefined;
+    }
+  }
+  if (part.type === "reasoning") {
+    const text = (part as any).text ?? "";
+    const match = text.trimStart().match(/^\*\*(.+?)\*\*/);
+    if (match) return `${t().parts.thinking} · ${match[1].trim()}`;
+    return t().parts.thinking;
+  }
+  if (part.type === "text") {
+    return t().steps.gatheringThoughts;
+  }
+  return undefined;
+}
+
+/**
+ * Format duration in human-readable format
+ */
+function formatDuration(startTime: number, endTime?: number): string {
+  const end = endTime ?? Date.now();
+  const diff = Math.max(0, end - startTime);
+  const seconds = Math.floor(diff / 1000);
+
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+export function SessionTurn(props: SessionTurnProps) {
+  const { t } = useI18n();
+  const [stepsExpanded, setStepsExpanded] = createSignal(false);
+
+  // Get user message parts
+  const userParts = createMemo(
+    () => messageStore.part[props.userMessage.id] || []
+  );
+
+  // Get pending permissions for this session
+  const permissions = createMemo(
+    () => messageStore.permission[props.sessionID] || []
+  );
+
+  // Get permission for a specific tool part (by callID)
+  const getPermissionForPart = (part: MessageV2.Part) => {
+    if (part.type !== "tool") return undefined;
+    const callID = part.callID;
+    return permissions().find(p => p.tool?.callID === callID);
+  };
+
+  // Check if there are any tool parts (steps)
+  const hasSteps = createMemo(() => {
+    for (const assistantMsg of props.assistantMessages) {
+      const parts = messageStore.part[assistantMsg.id] || [];
+      for (const p of parts) {
+        if (p?.type === "tool") return true;
+      }
+    }
+    return false;
+  });
+
+  // Get the last text part from assistant messages (the response)
+  const lastTextPart = createMemo(() => {
+    const msgs = props.assistantMessages;
+    for (let mi = msgs.length - 1; mi >= 0; mi--) {
+      const msgParts = messageStore.part[msgs[mi].id] || [];
+      for (let pi = msgParts.length - 1; pi >= 0; pi--) {
+        const part = msgParts[pi];
+        if (part?.type === "text") return part;
+      }
+    }
+    return undefined;
+  });
+
+  // Compute current working status
+  const currentStatus = createMemo(() => {
+    if (!props.isWorking) return undefined;
+
+    const msgs = props.assistantMessages;
+    for (let mi = msgs.length - 1; mi >= 0; mi--) {
+      const msgParts = messageStore.part[msgs[mi].id] || [];
+      for (let pi = msgParts.length - 1; pi >= 0; pi--) {
+        const part = msgParts[pi];
+        if (part) {
+          const status = computeStatusFromPart(part, t);
+          if (status) return status;
+        }
+      }
+    }
+    return t().steps.consideringNextSteps;
+  });
+
+  // Compute duration
+  const duration = createMemo(() => {
+    const startTime = props.userMessage.time.created;
+    const lastAssistant = props.assistantMessages.at(-1);
+    const endTime = lastAssistant?.time?.completed;
+    return formatDuration(startTime, endTime);
+  });
+
+  // Get model info from the first assistant message
+  const modelInfo = createMemo(() => {
+    const firstAssistant = props.assistantMessages[0];
+    if (firstAssistant) {
+      return {
+        providerID: firstAssistant.providerID,
+        modelID: firstAssistant.modelID,
+      };
+    }
+    return undefined;
+  });
+
+  // Filter parts for display
+  const filterParts = (allParts: MessageV2.Part[], messageRole: string) => {
+    const filtered = allParts.filter((x, index) => {
+      // 过滤掉所有 step-start，模型信息将显示在标题栏
+      if (x.type === "step-start") return false;
+      if (x.type === "snapshot") return false;
+      if (x.type === "patch") return false;
+      if (x.type === "step-finish") return false;
+      if (x.type === "text" && (x as any).synthetic === true) return false;
+      if (x.type === "tool" && x.tool === "todoread") return false;
+      if (x.type === "text" && !(x as any).text) return false;
+      // Show pending/running tools when working
+      if (
+        x.type === "tool" &&
+        !props.isWorking &&
+        ((x as any).state?.status === "pending" ||
+          (x as any).state?.status === "running")
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    // For assistant messages, reorder: reasoning -> tools -> text
+    if (messageRole === "assistant") {
+      const reasoning = filtered.filter((p) => p.type === "reasoning");
+      const tools = filtered.filter((p) => p.type === "tool");
+      const text = filtered.filter((p) => p.type === "text");
+      const others = filtered.filter(
+        (p) => p.type !== "reasoning" && p.type !== "tool" && p.type !== "text"
+      );
+      return [...others, ...reasoning, ...tools, ...text];
+    }
+
+    return filtered;
+  };
+
+  // Filter user message parts
+  const filteredUserParts = createMemo(() =>
+    filterParts(userParts(), "user")
+  );
+
+  // Get all steps parts (for expanded view)
+  const allStepsParts = createMemo(() => {
+    const result: { message: MessageV2.Info; parts: MessageV2.Part[] }[] = [];
+    for (const msg of props.assistantMessages) {
+      const parts = messageStore.part[msg.id] || [];
+      const filtered = filterParts(parts, "assistant");
+      // When showing steps, filter out the last text part (it's shown separately as response)
+      const lastText = lastTextPart();
+      const stepsFiltered = !props.isWorking && lastText
+        ? filtered.filter((p) => p.id !== lastText.id)
+        : filtered;
+      if (stepsFiltered.length > 0) {
+        result.push({ message: msg, parts: stepsFiltered });
+      }
+    }
+    return result;
+  });
+
+  const handleStepsToggle = () => {
+    setStepsExpanded((prev) => !prev);
+  };
+
+  return (
+    <div class={styles.sessionTurn} data-component="session-turn">
+      {/* User Message */}
+      <div class={styles.userMessage}>
+        <Index each={filteredUserParts()}>
+          {(part, partIndex) => (
+            <Part
+              last={props.isLastTurn && filteredUserParts().length === partIndex + 1}
+              part={part()}
+              index={partIndex}
+              message={props.userMessage}
+            />
+          )}
+        </Index>
+      </div>
+
+      {/* Steps Trigger - Show when working or has steps */}
+      <Show when={props.isWorking || hasSteps()}>
+        <div class={styles.stepsTrigger}>
+          <button
+            type="button"
+            class={styles.stepsTriggerButton}
+            onClick={handleStepsToggle}
+            data-working={props.isWorking ? "" : undefined}
+          >
+            {/* Spinner when working */}
+            <Show when={props.isWorking}>
+              <Spinner size="small" />
+            </Show>
+            
+            {/* Model icon - show when not working */}
+            <Show when={!props.isWorking && modelInfo()?.modelID}>
+              <span class={styles.modelIcon} title={`${modelInfo()?.providerID} / ${modelInfo()?.modelID}`}>
+                <ProviderIcon model={modelInfo()?.modelID || ""} size={14} />
+              </span>
+            </Show>
+
+            {/* Status text */}
+            <span class={styles.statusText}>
+              <Show
+                when={props.isWorking}
+                fallback={
+                  stepsExpanded() ? t().steps.hideSteps : t().steps.showSteps
+                }
+              >
+                {currentStatus()}
+              </Show>
+            </span>
+
+            {/* Duration */}
+            <span class={styles.separator}>·</span>
+            <span class={styles.duration}>{duration()}</span>
+
+            {/* Expand/Collapse arrow */}
+            <Show when={props.assistantMessages.length > 0}>
+              <span
+                class={styles.arrow}
+                data-expanded={stepsExpanded() ? "" : undefined}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </Show>
+          </button>
+        </div>
+      </Show>
+
+      {/* Expanded Steps Content */}
+      <Show when={stepsExpanded() && allStepsParts().length > 0}>
+        <div class={styles.stepsContent}>
+          <For each={allStepsParts()}>
+            {(item) => (
+              <div class={styles.assistantMessageParts}>
+                <Suspense>
+                  <Index each={item.parts}>
+                    {(part, partIndex) => (
+                      <Part
+                        last={false}
+                        part={part()}
+                        index={partIndex}
+                        message={item.message}
+                        permission={getPermissionForPart(part())}
+                        onPermissionRespond={props.onPermissionRespond}
+                      />
+                    )}
+                  </Index>
+                </Suspense>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      {/* Permission prompts for running tools (show even when steps collapsed) */}
+      <Show when={permissions().length > 0 && !stepsExpanded()}>
+        <div class={styles.permissionPrompts}>
+          <For each={permissions()}>
+            {(perm) => {
+              // Find the tool part for this permission
+              for (const msg of props.assistantMessages) {
+                const parts = messageStore.part[msg.id] || [];
+                for (let i = 0; i < parts.length; i++) {
+                  const p = parts[i];
+                  if (p.type === "tool" && p.callID === perm.tool?.callID) {
+                    return (
+                      <Part
+                        last={false}
+                        part={p}
+                        index={i}
+                        message={msg}
+                        permission={perm}
+                        onPermissionRespond={props.onPermissionRespond}
+                      />
+                    );
+                  }
+                }
+              }
+              return null;
+            }}
+          </For>
+        </div>
+      </Show>
+
+      {/* Response (last text part) - Always show when not working and has response */}
+      <Show when={!props.isWorking && lastTextPart()}>
+        <div class={styles.response}>
+          <div class={styles.responseHeader}>
+            <h3 class={styles.responseTitle}>{t().steps.response}</h3>
+          </div>
+          <div class={styles.responseContent}>
+            <Part
+              last={props.isLastTurn}
+              part={lastTextPart()!}
+              index={0}
+              message={props.assistantMessages.at(-1)!}
+            />
+          </div>
+        </div>
+      </Show>
+    </div>
+  );
+}

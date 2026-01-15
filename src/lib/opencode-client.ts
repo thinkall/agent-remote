@@ -1,4 +1,4 @@
-import { MessageV2, Session, Config } from "../types/opencode";
+import { MessageV2, Session, Config, Permission } from "../types/opencode";
 
 export class OpenCodeClient {
   private baseUrl: string;
@@ -49,7 +49,7 @@ export class OpenCodeClient {
     sessionId: string,
     text: string,
     options?: {
-      mode?: "build" | "plan";
+      agent?: "build" | "plan";
       modelID?: string;
       providerID?: string;
     },
@@ -62,8 +62,10 @@ export class OpenCodeClient {
         },
       ],
     };
-    if (options?.mode) {
-      body.mode = options.mode;
+    // OpenCode API uses 'agent' field to specify the agent/mode
+    // agent can be "build" or "plan"
+    if (options?.agent) {
+      body.agent = options.agent;
     }
     // OpenCode API 期望 model 是一个包含 providerID 和 modelID 的对象
     if (options?.modelID && options?.providerID) {
@@ -96,6 +98,18 @@ export class OpenCodeClient {
 
   async getAgents() {
     return this.request<Config.AgentInfo[]>("/agent");
+  }
+
+  // Permission operations
+  async respondToPermission(requestID: string, reply: Permission.Reply) {
+    return this.request<boolean>(`/permission/${requestID}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ reply }),
+    });
+  }
+
+  async listPermissions() {
+    return this.request<Permission.Request[]>("/permission");
   }
 
   // 本地存储默认模型设置（因为OpenCode没有全局配置API）
@@ -151,6 +165,12 @@ export class OpenCodeClient {
             onEvent({ type: "session.created", data: properties.info });
           } else if (eventType === "message.updated" && properties.info) {
             onEvent({ type: "message.updated", data: properties.info });
+          } else if (eventType === "permission.asked") {
+            // Permission request event - properties is the PermissionRequest itself
+            onEvent({ type: "permission.asked", data: properties });
+          } else if (eventType === "permission.replied") {
+            // Permission response event - remove from pending
+            onEvent({ type: "permission.replied", data: properties });
           } else {
             console.log("[SSE Client] Unhandled event type:", eventType);
           }

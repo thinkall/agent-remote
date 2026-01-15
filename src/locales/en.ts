@@ -23,6 +23,15 @@ export interface LocaleDict {
     hideOutput: string;
     error: string;
     unknownProject: string;
+    running: string;
+  };
+
+  // Permission
+  permission: {
+    deny: string;
+    allowOnce: string;
+    allowAlways: string;
+    waitingApproval: string;
   };
 
   // Login page
@@ -63,6 +72,7 @@ export interface LocaleDict {
     saveFailed: string;
     saving: string;
     saveAndConnect: string;
+    language: string;
     infoTitle: string;
     infoDefault: string;
     infoRemote: string;
@@ -107,13 +117,13 @@ export interface LocaleDict {
 
   // Prompt Input
   prompt: {
-    normalMode: string;
-    normal: string;
     buildMode: string;
     build: string;
     planMode: string;
     plan: string;
+    readOnly: string;
     placeholder: string;
+    planPlaceholder: string;
     send: string;
   };
 
@@ -135,6 +145,23 @@ export interface LocaleDict {
     matches: string;
     result: string;
     results: string;
+    lines: string;
+  };
+
+  // Steps (SessionTurn)
+  steps: {
+    showSteps: string;
+    hideSteps: string;
+    response: string;
+    consideringNextSteps: string;
+    delegatingWork: string;
+    planningNextSteps: string;
+    gatheringContext: string;
+    searchingCodebase: string;
+    searchingWeb: string;
+    makingEdits: string;
+    runningCommands: string;
+    gatheringThoughts: string;
   };
 }
 
@@ -162,6 +189,15 @@ export const en: LocaleDict = {
     hideOutput: "Hide output",
     error: "Error",
     unknownProject: "Unknown Project",
+    running: "Running...",
+  },
+
+  // Permission
+  permission: {
+    deny: "Deny",
+    allowOnce: "Allow once",
+    allowAlways: "Allow always",
+    waitingApproval: "Waiting for approval",
   },
 
   // Login page
@@ -202,6 +238,7 @@ export const en: LocaleDict = {
     saveFailed: "Save failed. Please check the URL format",
     saving: "Saving...",
     saveAndConnect: "Save & Connect",
+    language: "Language",
     infoTitle: "Info",
     infoDefault: "Default address is usually /opencode-api (pointing to local proxy)",
     infoRemote: "If connecting to a remote server, make sure the network is reachable",
@@ -246,13 +283,13 @@ export const en: LocaleDict = {
 
   // Prompt Input
   prompt: {
-    normalMode: "Normal chat mode",
-    normal: "Normal",
-    buildMode: "Build mode - for building and coding tasks",
+    buildMode: "Build mode - execute code changes and commands",
     build: "Build",
-    planMode: "Plan mode - for planning and design tasks",
+    planMode: "Plan mode - read-only research and planning",
     plan: "Plan",
+    readOnly: "Read-only",
     placeholder: "Type a message...",
+    planPlaceholder: "Describe what you want to plan or analyze...",
     send: "Send message",
   },
 
@@ -274,5 +311,22 @@ export const en: LocaleDict = {
     matches: "{count} matches",
     result: "{count} result",
     results: "{count} results",
+    lines: "{count} lines",
+  },
+
+  // Steps (SessionTurn)
+  steps: {
+    showSteps: "Show steps",
+    hideSteps: "Hide steps",
+    response: "Response",
+    consideringNextSteps: "Considering next steps",
+    delegatingWork: "Delegating work",
+    planningNextSteps: "Planning next steps",
+    gatheringContext: "Gathering context",
+    searchingCodebase: "Searching the codebase",
+    searchingWeb: "Searching the web",
+    makingEdits: "Making edits",
+    runningCommands: "Running commands",
+    gatheringThoughts: "Gathering thoughts",
   },
 };

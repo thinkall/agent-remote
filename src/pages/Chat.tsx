@@ -18,9 +18,9 @@ import { MessageList } from "../components/MessageList";
 import { PromptInput } from "../components/PromptInput";
 import { SessionSidebar } from "../components/SessionSidebar";
 import { ModelSelector } from "../components/ModelSelector";
-import { LanguageSwitcher } from "../components/LanguageSwitcher";
-import { MessageV2 } from "../types/opencode";
+import { MessageV2, Permission } from "../types/opencode";
 import { useI18n } from "../lib/i18n";
+import { AgentMode } from "../components/PromptInput";
 
 export default function Chat() {
   const { t } = useI18n();
@@ -33,6 +33,9 @@ export default function Chat() {
     providerID: string;
     modelID: string;
   } | null>(client.getDefaultModel());
+  
+  // Agent mode state - default to "build" matching OpenCode's default
+  const [currentAgent, setCurrentAgent] = createSignal<AgentMode>("build");
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = createSignal(false);
@@ -125,6 +128,12 @@ export default function Chat() {
       summary: s.summary,
     }));
 
+    // Sort by updatedAt descending (newest first)
+    processedSessions.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+
+    // Select the most recently updated session as default
     let currentSession = processedSessions[0];
     if (!currentSession) {
       console.log("[Init] No sessions found, creating new one");
@@ -214,6 +223,25 @@ export default function Chat() {
     }
   };
 
+  // Handle permission response
+  const handlePermissionRespond = async (
+    sessionID: string,
+    permissionID: string,
+    reply: Permission.Reply,
+  ) => {
+    console.log("[Permission] Responding:", { sessionID, permissionID, reply });
+    
+    try {
+      await client.respondToPermission(permissionID, reply);
+      
+      // Optimistically remove from queue (SSE will also send permission.replied)
+      const existing = messageStore.permission[sessionID] || [];
+      setMessageStore("permission", sessionID, existing.filter(p => p.id !== permissionID));
+    } catch (error) {
+      console.error("[Permission] Failed to respond:", error);
+    }
+  };
+
   const handleSSEEvent = (event: { type: string; data: any }) => {
     // console.log("[SSE] Event received:", event.type, event.data); // Reduce noise
 
@@ -295,6 +323,28 @@ export default function Chat() {
         ),
       );
     }
+
+    // Handle permission events
+    if (event.type === "permission.asked") {
+      const permission = event.data as Permission.Request;
+      console.log("[SSE] Permission asked:", permission);
+      
+      // Add to permission queue for this session
+      const existing = messageStore.permission[permission.sessionID] || [];
+      // Avoid duplicates
+      if (!existing.find(p => p.id === permission.id)) {
+        setMessageStore("permission", permission.sessionID, [...existing, permission]);
+      }
+    }
+
+    if (event.type === "permission.replied") {
+      const { sessionID, requestID } = event.data as { sessionID: string; requestID: string };
+      console.log("[SSE] Permission replied:", requestID);
+      
+      // Remove from permission queue
+      const existing = messageStore.permission[sessionID] || [];
+      setMessageStore("permission", sessionID, existing.filter(p => p.id !== requestID));
+    }
   };
 
   // Binary search helper (consistent with opencode desktop)
@@ -322,7 +372,7 @@ export default function Chat() {
     return { found: false, index: left };
   }
 
-  const handleSendMessage = async (text: string, mode?: "build" | "plan") => {
+  const handleSendMessage = async (text: string, agent: AgentMode) => {
     const sessionId = sessionStore.current;
     if (!sessionId || sending()) return;
 
@@ -368,7 +418,7 @@ export default function Chat() {
 
     const model = currentSessionModel();
     await client.sendMessage(sessionId, text, {
-      mode,
+      agent,
       modelID: model?.modelID,
       providerID: model?.providerID,
     });
@@ -453,9 +503,16 @@ export default function Chat() {
             <h1 class="text-base font-semibold text-gray-900 dark:text-white truncate">
               {sessionStore.list.find(s => s.id === sessionStore.current)?.title || "OpenCode Remote"}
             </h1>
+            {/* Agent Mode Indicator */}
+            <span class={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
+              currentAgent() === "plan"
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+            }`}>
+              {currentAgent() === "plan" ? t().prompt.plan : t().prompt.build}
+            </span>
           </div>
-          <div class="flex items-center gap-2">
-            <LanguageSwitcher />
+          <div class="flex items-center gap-2 max-w-[50%] md:max-w-none">
             <ModelSelector onModelChange={handleModelChange} />
           </div>
         </header>
@@ -500,7 +557,7 @@ export default function Chat() {
                       </div>
                     }
                   >
-                    <MessageList sessionID={sessionStore.current!} />
+                    <MessageList sessionID={sessionStore.current!} isWorking={sending()} onPermissionRespond={handlePermissionRespond} />
                   </Show>
                 </div>
               </div>
@@ -508,7 +565,12 @@ export default function Chat() {
               {/* Input Area */}
               <div class="p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-t border-gray-100 dark:border-zinc-800">
                 <div class="max-w-3xl mx-auto w-full">
-                  <PromptInput onSend={handleSendMessage} disabled={sending()} />
+                  <PromptInput 
+                    onSend={handleSendMessage} 
+                    disabled={sending()} 
+                    currentAgent={currentAgent()}
+                    onAgentChange={setCurrentAgent}
+                  />
                   <div class="mt-2 text-center">
                     <p class="text-[10px] text-gray-400 dark:text-gray-600">
                       {t().chat.disclaimer}

@@ -2,16 +2,22 @@ import { createSignal, createEffect } from "solid-js";
 import { IconArrowUp } from "./icons";
 import { useI18n } from "../lib/i18n";
 
+// Agent type matching OpenCode's agent system
+export type AgentMode = "build" | "plan";
+
 interface PromptInputProps {
-  onSend: (text: string, mode?: "build" | "plan") => void;
+  onSend: (text: string, agent: AgentMode) => void;
   disabled?: boolean;
+  currentAgent?: AgentMode;
+  onAgentChange?: (agent: AgentMode) => void;
 }
 
 export function PromptInput(props: PromptInputProps) {
   const { t } = useI18n();
   const [text, setText] = createSignal("");
   const [textarea, setTextarea] = createSignal<HTMLTextAreaElement>();
-  const [mode, setMode] = createSignal<"normal" | "build" | "plan">("normal");
+  // Default to "build" mode, matching OpenCode's default behavior
+  const [agent, setAgent] = createSignal<AgentMode>(props.currentAgent || "build");
 
   const adjustHeight = () => {
     const el = textarea();
@@ -28,15 +34,23 @@ export function PromptInput(props: PromptInputProps) {
     }
   });
 
+  // Sync agent with props when it changes externally
+  createEffect(() => {
+    if (props.currentAgent && props.currentAgent !== agent()) {
+      setAgent(props.currentAgent);
+    }
+  });
+
+  const handleAgentChange = (newAgent: AgentMode) => {
+    setAgent(newAgent);
+    props.onAgentChange?.(newAgent);
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (text().trim() && !props.disabled) {
-        const selectedMode = mode();
-        props.onSend(
-          text(),
-          selectedMode === "normal" ? undefined : selectedMode,
-        );
+        props.onSend(text(), agent());
         setText("");
       }
     }
@@ -44,56 +58,48 @@ export function PromptInput(props: PromptInputProps) {
 
   const handleSend = () => {
     if (text().trim() && !props.disabled) {
-      const selectedMode = mode();
-      props.onSend(
-        text(),
-        selectedMode === "normal" ? undefined : selectedMode,
-      );
+      props.onSend(text(), agent());
       setText("");
     }
   };
 
   return (
     <div class="w-full max-w-4xl mx-auto">
-      {/* Mode selector */}
+      {/* Agent selector - Only Build and Plan modes */}
       <div class="flex gap-2 mb-2 px-1">
         <button
-          onClick={() => setMode("normal")}
-          class={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            mode() === "normal"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700"
-          }`}
-          title={t().prompt.normalMode}
-        >
-          💬 {t().prompt.normal}
-        </button>
-        <button
-          onClick={() => setMode("build")}
-          class={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            mode() === "build"
-              ? "bg-green-600 text-white"
+          onClick={() => handleAgentChange("build")}
+          class={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+            agent() === "build"
+              ? "bg-emerald-600 text-white shadow-sm"
               : "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700"
           }`}
           title={t().prompt.buildMode}
         >
-          🔨 Build
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+          {t().prompt.build}
         </button>
         <button
-          onClick={() => setMode("plan")}
-          class={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            mode() === "plan"
-              ? "bg-purple-600 text-white"
+          onClick={() => handleAgentChange("plan")}
+          class={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+            agent() === "plan"
+              ? "bg-violet-600 text-white shadow-sm"
               : "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700"
           }`}
           title={t().prompt.planMode}
         >
-          📋 Plan
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          {t().prompt.plan}
+          <span class="text-[10px] opacity-75">({t().prompt.readOnly})</span>
         </button>
       </div>
 
       {/* Input area */}
-      <div class="relative bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+      <div class={`relative rounded-xl border shadow-sm focus-within:ring-2 focus-within:border-transparent transition-all ${
+        agent() === "plan" 
+          ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800 focus-within:ring-violet-500" 
+          : "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 focus-within:ring-blue-500"
+      }`}>
         <textarea
           ref={setTextarea}
           value={text()}
@@ -102,7 +108,7 @@ export function PromptInput(props: PromptInputProps) {
             adjustHeight();
           }}
           onKeyDown={handleKeyDown}
-          placeholder={t().prompt.placeholder}
+          placeholder={agent() === "plan" ? t().prompt.planPlaceholder : t().prompt.placeholder}
           rows={1}
           disabled={props.disabled}
           class="w-full px-4 py-3 pr-12 bg-transparent resize-none focus:outline-none dark:text-white disabled:opacity-50 max-h-[200px] overflow-y-auto"
@@ -111,7 +117,11 @@ export function PromptInput(props: PromptInputProps) {
         <button
           onClick={handleSend}
           disabled={!text().trim() || props.disabled}
-          class="absolute right-2 bottom-2 p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-200 dark:disabled:bg-zinc-700 disabled:text-gray-400 dark:disabled:text-zinc-500 transition-colors"
+          class={`absolute right-2 bottom-2 p-2 rounded-lg text-white transition-colors disabled:bg-gray-200 dark:disabled:bg-zinc-700 disabled:text-gray-400 dark:disabled:text-zinc-500 ${
+            agent() === "plan" 
+              ? "bg-violet-600 hover:bg-violet-700" 
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
           aria-label={t().prompt.send}
         >
           <IconArrowUp width={20} height={20} />

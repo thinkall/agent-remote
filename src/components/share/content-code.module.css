@@ -11,6 +11,16 @@
     border-radius: 0;
   }
 
+  &[data-transparent-bg="true"] {
+    background-color: transparent;
+
+    pre {
+      --shiki-dark-bg: transparent !important;
+      --shiki-light-bg: transparent !important;
+      background-color: transparent !important;
+    }
+  }
+
   pre {
     --shiki-dark-bg: var(--sl-color-bg-surface) !important;
     background-color: var(--sl-color-bg-surface) !important;
@@ -18,9 +28,39 @@
     font-size: 0.75rem;
     white-space: pre-wrap;
     word-break: break-word;
+    margin: 0;
 
     span {
       white-space: break-spaces;
     }
   }
+}
+
+.withLineNumbers {
+  display: flex;
+  gap: 0;
+}
+
+.lineNumbers {
+  display: flex;
+  flex-direction: column;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--sl-color-divider);
+  margin-right: 0.75rem;
+  user-select: none;
+}
+
+.lineNumber {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--sl-color-text-dimmed);
+  text-align: right;
+  min-width: 2.5ch;
+  font-family: monospace;
+}
+
+.codeContent {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
 }

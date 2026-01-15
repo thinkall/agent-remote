@@ -24,6 +24,15 @@ export const zh: LocaleDict = {
     hideOutput: "隐藏输出",
     error: "错误",
     unknownProject: "未知项目",
+    running: "运行中...",
+  },
+
+  // Permission
+  permission: {
+    deny: "拒绝",
+    allowOnce: "允许一次",
+    allowAlways: "总是允许",
+    waitingApproval: "等待批准",
   },
 
   // Login page
@@ -64,6 +73,7 @@ export const zh: LocaleDict = {
     saveFailed: "保存失败，请检查地址格式",
     saving: "保存中...",
     saveAndConnect: "保存并连接",
+    language: "语言",
     infoTitle: "说明",
     infoDefault: "默认地址通常为 /opencode-api (指向本地代理)",
     infoRemote: "如果连接远程服务器，请确保网络可达",
@@ -108,13 +118,13 @@ export const zh: LocaleDict = {
 
   // Prompt Input
   prompt: {
-    normalMode: "普通对话模式",
-    normal: "普通",
-    buildMode: "Build 模式 - 用于构建和编码任务",
+    buildMode: "Build 模式 - 执行代码修改和命令",
     build: "Build",
-    planMode: "Plan mode - 用于规划和设计任务",
+    planMode: "Plan 模式 - 只读研究和规划",
     plan: "Plan",
+    readOnly: "只读",
     placeholder: "输入消息...",
+    planPlaceholder: "描述你想要规划或分析的内容...",
     send: "发送消息",
   },
 
@@ -136,5 +146,22 @@ export const zh: LocaleDict = {
     matches: "{count} 匹配",
     result: "{count} 结果",
     results: "{count} 结果",
+    lines: "{count} 行",
+  },
+
+  // Steps (SessionTurn)
+  steps: {
+    showSteps: "显示步骤",
+    hideSteps: "隐藏步骤",
+    response: "回复",
+    consideringNextSteps: "思考下一步",
+    delegatingWork: "分配任务",
+    planningNextSteps: "规划步骤",
+    gatheringContext: "收集上下文",
+    searchingCodebase: "搜索代码库",
+    searchingWeb: "搜索网页",
+    makingEdits: "进行编辑",
+    runningCommands: "运行命令",
+    gatheringThoughts: "整理思路",
   },
 };

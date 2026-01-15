@@ -1,0 +1,179 @@
+.sessionTurn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.userMessage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stepsTrigger {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+}
+
+:global(.dark) .stepsTrigger {
+  background-color: rgba(24, 24, 27, 0.95);
+}
+
+.stepsTriggerButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: #fafafa;
+  color: #6b7280;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+:global(.dark) .stepsTriggerButton {
+  background-color: #27272a;
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
+.stepsTriggerButton:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+:global(.dark) .stepsTriggerButton:hover {
+  background-color: #3f3f46;
+  border-color: #52525b;
+  color: #e4e4e7;
+}
+
+.stepsTriggerButton[data-working] {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+:global(.dark) .stepsTriggerButton[data-working] {
+  border-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.statusText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.separator {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+:global(.dark) .separator {
+  color: #71717a;
+}
+
+.duration {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+:global(.dark) .duration {
+  color: #71717a;
+}
+
+.modelIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+:global(.dark) .modelIcon {
+  color: #a1a1aa;
+}
+
+.arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.arrow[data-expanded] {
+  transform: rotate(180deg);
+}
+
+.stepsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: #fafafa;
+}
+
+:global(.dark) .stepsContent {
+  border-color: #3f3f46;
+  background-color: #18181b;
+}
+
+.assistantMessageParts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.response {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background-color: white;
+}
+
+:global(.dark) .response {
+  border-color: #3f3f46;
+  background-color: #27272a;
+}
+
+.responseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.responseTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+:global(.dark) .responseTitle {
+  color: #e4e4e7;
+}
+
+.responseContent {
+  /* Reset some Part component styles for response display */
+}

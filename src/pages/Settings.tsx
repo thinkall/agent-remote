@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { client } from "../lib/opencode-client";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useI18n } from "../lib/i18n";
 
 export default function Settings() {
@@ -133,6 +134,15 @@ export default function Settings() {
         <main class="flex-1 overflow-y-auto">
           <div class="max-w-2xl mx-auto px-6 py-8">
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border dark:border-zinc-700 p-6 mb-6">
+              <div class="mb-6">
+                <span class="text-lg font-semibold text-gray-800 dark:text-white mb-2 block">
+                  {t().settings.language}
+                </span>
+                <div class="inline-block">
+                  <LanguageSwitcher />
+                </div>
+              </div>
+
               <label class="block">
                 <span class="text-lg font-semibold text-gray-800 dark:text-white mb-2 block">
                   {t().settings.serverUrl}

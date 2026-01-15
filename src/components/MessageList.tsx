@@ -1,87 +1,104 @@
-import { Index, Suspense, createMemo, For } from "solid-js";
-import { Part } from "./share/part";
+import { createMemo, For, Show } from "solid-js";
 import { messageStore } from "../stores/message";
-import type { MessageV2 } from "../types/opencode";
+import { SessionTurn } from "./SessionTurn";
+import type { MessageV2, Permission } from "../types/opencode";
 
 interface MessageListProps {
   sessionID: string;
+  isWorking?: boolean;
+  onPermissionRespond?: (sessionID: string, permissionID: string, reply: Permission.Reply) => void;
+}
+
+interface Turn {
+  userMessage: MessageV2.Info;
+  assistantMessages: MessageV2.Info[];
+}
+
+/**
+ * Group messages into turns (user message + following assistant messages)
+ * A turn starts with a user message and includes all subsequent assistant messages
+ * until the next user message
+ */
+function groupMessagesIntoTurns(messages: MessageV2.Info[]): Turn[] {
+  const turns: Turn[] = [];
+  let currentTurn: Turn | null = null;
+
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      // Start a new turn
+      if (currentTurn) {
+        turns.push(currentTurn);
+      }
+      currentTurn = {
+        userMessage: msg,
+        assistantMessages: [],
+      };
+    } else if (msg.role === "assistant" && currentTurn) {
+      // Add to current turn's assistant messages
+      currentTurn.assistantMessages.push(msg);
+    }
+  }
+
+  // Don't forget the last turn
+  if (currentTurn) {
+    turns.push(currentTurn);
+  }
+
+  return turns;
 }
 
 export function MessageList(props: MessageListProps) {
   // Get all messages for this session (sorted by id)
   const messages = createMemo(() => messageStore.message[props.sessionID] || []);
 
+  // Group messages into turns
+  const turns = createMemo(() => groupMessagesIntoTurns(messages()));
+
+  // Check if the last assistant message is still being processed
+  const isLastTurnWorking = createMemo(() => {
+    const allTurns = turns();
+    if (allTurns.length === 0) return false;
+
+    const lastTurn = allTurns[allTurns.length - 1];
+    const lastAssistant = lastTurn.assistantMessages.at(-1);
+
+    if (!lastAssistant) {
+      // No assistant response yet - might be waiting
+      return props.isWorking ?? false;
+    }
+
+    // Check if the last assistant message has a completed time
+    return !lastAssistant.time?.completed && (props.isWorking ?? false);
+  });
+
   return (
-    <div class="flex flex-col gap-6 py-4">
-      <Index each={messages()}>
-        {(message, msgIndex) => {
-          // Get all parts for this message (sorted by id)
-          const parts = createMemo(() => messageStore.part[message().id] || []);
+    <div class="flex flex-col gap-8 py-4">
+      <Show
+        when={turns().length > 0}
+        fallback={
+          <div class="text-center text-gray-400 py-8">
+            {/* Empty state is handled by parent */}
+          </div>
+        }
+      >
+        <For each={turns()}>
+          {(turn, turnIndex) => {
+            const isLastTurn = () => turnIndex() === turns().length - 1;
+            const isWorking = () => isLastTurn() && isLastTurnWorking();
 
-          // Filter parts (consistent with opencode desktop)
-          const filteredParts = createMemo(() => {
-            const allParts = parts();
-
-            const filtered = allParts.filter((x, index) => {
-              // Filter internal states and hidden parts
-              if (x.type === "step-start" && index > 0) return false;
-              if (x.type === "snapshot") return false;
-              if (x.type === "patch") return false;
-              if (x.type === "step-finish") return false;
-              if (x.type === "text" && x.synthetic === true) return false;
-              if (x.type === "tool" && x.tool === "todoread") return false;
-              if (x.type === "text" && !x.text) return false;
-              if (
-                x.type === "tool" &&
-                (x.state.status === "pending" || x.state.status === "running")
-              )
-                return false;
-              return true;
-            });
-
-            // For assistant messages, reorder: reasoning -> tools -> text
-            // This ensures thinking process comes first, final reply last
-            if (message().role === "assistant") {
-              const reasoning = filtered.filter((p) => p.type === "reasoning");
-              const tools = filtered.filter((p) => p.type === "tool");
-              const text = filtered.filter((p) => p.type === "text");
-              const others = filtered.filter(
-                (p) => p.type !== "reasoning" && p.type !== "tool" && p.type !== "text"
-              );
-
-              return [...others, ...reasoning, ...tools, ...text];
-            }
-
-            return filtered;
-          });
-
-          return (
-            <div class="flex flex-col gap-2">
-              <Suspense>
-                <Index each={filteredParts()}>
-                  {(part, partIndex) => {
-                    // Check if it's the last part of the last message
-                    const isLast = createMemo(
-                      () =>
-                        messages().length === msgIndex + 1 &&
-                        filteredParts().length === partIndex + 1,
-                    );
-
-                    return (
-                      <Part
-                        last={isLast()}
-                        part={part()}
-                        index={partIndex}
-                        message={message()}
-                      />
-                    );
-                  }}
-                </Index>
-              </Suspense>
-            </div>
-          );
-        }}
-      </Index>
+            return (
+              <SessionTurn
+                sessionID={props.sessionID}
+                userMessage={turn.userMessage}
+                assistantMessages={turn.assistantMessages}
+                isLastTurn={isLastTurn()}
+                isWorking={isWorking()}
+                onPermissionRespond={props.onPermissionRespond}
+              />
+            );
+          }}
+        </For>
+      </Show>
     </div>
   );
 }

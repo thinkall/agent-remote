@@ -147,6 +147,47 @@
     }
   }
 
+  [data-component="reasoning"] {
+      width: 100%;
+      max-width: var(--md-tool-width);
+      
+      [data-slot="collapsible-trigger"] {
+         display: flex;
+         align-items: center;
+         gap: 0.5rem;
+         font-size: 0.75rem;
+         color: var(--sl-color-text-dimmed);
+         background: transparent;
+         border: none;
+         cursor: pointer;
+         padding: 0.25rem 0;
+         width: 100%;
+         
+         &:hover {
+            color: var(--sl-color-text);
+         }
+         
+         [data-slot="title"] {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+         }
+         
+         [data-slot="collapsible-arrow"] {
+            margin-left: auto;
+         }
+      }
+      
+      [data-component="assistant-reasoning-markdown"] {
+          font-size: 0.875rem;
+          color: var(--sl-color-text-secondary);
+          padding-left: 0.5rem;
+          border-left: 2px solid var(--sl-color-divider);
+          margin-top: 0.5rem;
+          margin-bottom: 1rem;
+      }
+  }
+
   [data-component="assistant-text"] {
     min-width: 0;
     display: flex;
@@ -158,9 +199,7 @@
     & > [data-component="assistant-text-markdown"] {
       align-self: flex-start;
       font-size: 0.875rem;
-      border: 1px solid var(--sl-color-blue-high);
-      padding: 0.5rem calc(0.5rem + 3px);
-      border-radius: 0.25rem;
+      /* removed border and padding */
       position: relative;
     }
   }
@@ -240,7 +279,56 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.375rem;
+    gap: 0;
+    /* add background/border for tool container */
+    padding: 0;
+    border: 1px solid var(--sl-color-divider);
+    border-radius: 0.5rem;
+    background-color: var(--sl-color-bg-alt);
+    width: 100%;
+    max-width: var(--md-tool-width);
+    overflow: hidden;
+
+    [data-slot="collapsible-trigger"] {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+
+      &:hover {
+        background-color: var(--sl-color-bg-hover);
+      }
+      
+      [data-slot="collapsible-arrow"] {
+        color: var(--sl-color-text-secondary);
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+      }
+    }
+
+    [data-slot="collapsible-content"] {
+      padding: 0.75rem;
+      padding-top: 0;
+      width: 100%;
+      border-top: 1px solid transparent;
+      
+      & > * {
+        margin-top: 0.5rem;
+      }
+    }
+    
+    &[data-open] {
+      [data-slot="collapsible-content"] {
+         border-top-color: var(--sl-color-divider);
+      }
+    }
 
     &[data-tool="bash"] {
       max-width: var(--sm-tool-width);
@@ -289,32 +377,49 @@
     }
   }
 
-  [data-component="tool-title"] {
-    line-height: 18px;
-    font-size: 0.875rem;
-    color: var(--sl-color-text-secondary);
-    max-width: var(--md-tool-width);
-    display: flex;
-    align-items: flex-start;
-    gap: 0.375rem;
 
-    [data-slot="name"] {
-      text-transform: uppercase;
-      letter-spacing: -0.5px;
-    }
+    [data-component="tool-title"] {
+        line-height: 18px;
+        font-size: 0.875rem;
+        color: var(--sl-color-text-secondary);
+        max-width: var(--md-tool-width);
+        display: flex;
+        align-items: center; /* Changed from flex-start to center */
+        gap: 0.375rem;
+        width: 100%;
+        min-width: 0; /* Add this to allow shrinking */
+    
+        [data-slot="name"] {
+          text-transform: uppercase;
+          letter-spacing: -0.5px;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+    
+        [data-slot="target"] {
+          color: var(--sl-color-text);
+          word-break: break-all;
+          font-weight: 500;
+          flex: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
 
-    [data-slot="target"] {
-      color: var(--sl-color-text);
-      word-break: break-all;
-      font-weight: 500;
-    }
-  }
+        [data-slot="summary"] {
+           font-size: 0.75rem;
+           margin-left: auto;
+           flex-shrink: 0;
+        }
+      }
+
 
   [data-component="tool-result"] {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+    width: 100%;
   }
 
   [data-component="todos"] {

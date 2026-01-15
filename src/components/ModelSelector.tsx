@@ -91,7 +91,7 @@ export function ModelSelector(props: ModelSelectorProps) {
     <div class="relative">
       <button
         onClick={() => setIsOpen(!isOpen())}
-        class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
+        class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 max-w-[200px] md:max-w-xs w-full"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -106,7 +106,7 @@ export function ModelSelector(props: ModelSelectorProps) {
             clip-rule="evenodd"
           />
         </svg>
-        <span class="max-w-[200px] truncate">
+        <span class="flex-1 truncate text-left">
           {selectedModelName() || t().model.selectModel}
         </span>
         <svg
@@ -124,7 +124,7 @@ export function ModelSelector(props: ModelSelectorProps) {
       </button>
 
       <Show when={isOpen()}>
-        <div class="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div class="absolute right-0 top-full mt-2 w-72 md:w-80 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
           <Show
             when={connectedProviders().length > 0}
             fallback={

@@ -156,6 +156,24 @@ export namespace Session {
   }
 }
 
+// Permission types for authorization requests
+export namespace Permission {
+  export interface Request {
+    id: string;
+    sessionID: string;
+    permission: string;
+    patterns: string[];
+    metadata: Record<string, unknown>;
+    always: string[];
+    tool?: {
+      messageID: string;
+      callID: string;
+    };
+  }
+
+  export type Reply = "once" | "always" | "reject";
+}
+
 export namespace Config {
   export interface Model {
     id: string;

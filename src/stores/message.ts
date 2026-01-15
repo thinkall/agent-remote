@@ -1,5 +1,5 @@
 import { createStore } from "solid-js/store";
-import { MessageV2 } from "../types/opencode";
+import { MessageV2, Permission } from "../types/opencode";
 
 // 与 opencode desktop 完全一致的存储结构
 export const [messageStore, setMessageStore] = createStore<{
@@ -9,7 +9,11 @@ export const [messageStore, setMessageStore] = createStore<{
   part: {
     [messageID: string]: MessageV2.Part[];  // 按 messageID 分组，数组按 id 排序
   };
+  permission: {
+    [sessionID: string]: Permission.Request[];  // 按 sessionID 分组的权限请求队列
+  };
 }>({
   message: {},
   part: {},
+  permission: {},
 });

@@ -36,6 +36,7 @@ import {
   IconAnthropic,
   IconBrain,
 } from "../icons/custom";
+import { Collapsible } from "../Collapsible";
 import { ContentCode } from "./content-code";
 import { ContentDiff } from "./content-diff";
 import { ContentText } from "./content-text";
@@ -43,7 +44,7 @@ import { ContentBash } from "./content-bash";
 import { ContentError } from "./content-error";
 import { formatDuration } from "./common";
 import { ContentMarkdown } from "./content-markdown";
-import type { MessageV2 } from "../../types/opencode";
+import type { MessageV2, Permission } from "../../types/opencode";
 import type { Diagnostic } from "vscode-languageserver-types";
 import { useI18n, formatMessage } from "../../lib/i18n";
 
@@ -56,6 +57,8 @@ export interface PartProps {
   message: MessageV2.Info;
   part: MessageV2.Part;
   last: boolean;
+  permission?: Permission.Request;
+  onPermissionRespond?: (sessionID: string, permissionID: string, reply: Permission.Reply) => void;
 }
 
 export function Part(props: PartProps) {
@@ -104,6 +107,8 @@ export function Part(props: PartProps) {
               >
                 <IconPaperClip width={18} height={18} />
               </Match>
+
+
               <Match
                 when={
                   props.part.type === "step-start" &&
@@ -111,7 +116,9 @@ export function Part(props: PartProps) {
                   props.message.modelID
                 }
               >
-                {(model) => <ProviderIcon model={model()} size={18} />}
+                <div title={props.message.modelID}>
+                   <ProviderIcon model={props.message.modelID || ""} size={18} />
+                </div>
               </Match>
               <Match
                 when={
@@ -220,19 +227,21 @@ export function Part(props: PartProps) {
           </div>
         )}
         {props.message.role === "assistant" && props.part.type === "reasoning" && (
-          <div data-component="tool">
-            <div data-component="tool-title">
-              <span data-slot="name">{t().parts.thinking}</span>
-            </div>
-            <Show when={props.part.text}>
-              <div data-component="assistant-reasoning">
-                <ResultsButton showCopy={t().common.showDetails} hideCopy={t().common.hideDetails}>
-                  <div data-component="assistant-reasoning-markdown">
-                    <ContentMarkdown expand text={props.part.text || t().parts.thinking + "..."} />
-                  </div>
-                </ResultsButton>
-              </div>
-            </Show>
+          <div data-component="reasoning">
+             <Collapsible defaultOpen={false}>
+                <Collapsible.Trigger>
+                   <div data-slot="title">
+                      <IconBrain width={14} height={14} />
+                      <span>{t().parts.thinking}</span>
+                   </div>
+                   <Collapsible.Arrow />
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                    <div data-component="assistant-reasoning-markdown">
+                        <ContentMarkdown expand text={props.part.text || t().parts.thinking + "..."} />
+                    </div>
+                </Collapsible.Content>
+             </Collapsible>
           </div>
         )}
 
@@ -250,13 +259,59 @@ export function Part(props: PartProps) {
             </div>
           )}
         {props.part.type === "tool" && props.part.state.status === "error" && (
-          <div data-component="tool" data-tool="error">
-            {/* @ts-ignore - error might not be on state directly in all cases, but keeping logic */}
-            <ContentError>
-              {formatErrorString(props.part.state.error)}
-            </ContentError>
-            <Spacer />
+          <Collapsible defaultOpen={false} class={styles.root}>
+            <Collapsible.Trigger>
+              <div data-component="tool-title">
+                <span data-slot="name">Error</span>
+                <span data-slot="target">{props.part.tool}</span>
+              </div>
+              <Collapsible.Arrow />
+            </Collapsible.Trigger>
+            <Collapsible.Content>
+              <ContentError>
+                {formatErrorString(props.part.state.error)}
+              </ContentError>
+            </Collapsible.Content>
+          </Collapsible>
+        )}
+        {/* Tool with pending permission - show permission prompt */}
+        {props.part.type === "tool" && props.permission && (
+          <div data-component="tool-permission">
+            <div data-component="tool-title" data-waiting>
+              <span data-slot="name">{props.part.tool}</span>
+              <span data-slot="target">
+                {props.part.state.status === "running" && (props.part.state as any).input?.description}
+                {props.part.state.status === "running" && (props.part.state as any).input?.filePath}
+                {props.part.state.status === "running" && (props.part.state as any).input?.command && 
+                  ((props.part.state as any).input.command.length > 50 
+                    ? (props.part.state as any).input.command.slice(0, 50) + "..." 
+                    : (props.part.state as any).input.command)}
+              </span>
+            </div>
+            <PermissionPrompt
+              permission={props.permission}
+              onRespond={props.onPermissionRespond}
+            />
           </div>
+        )}
+        {/* Tool running without permission */}
+        {props.part.type === "tool" &&
+          (props.part.state.status === "pending" || props.part.state.status === "running") &&
+          !props.permission &&
+          props.message.role === "assistant" && (
+            <div data-component="tool-running">
+              <div data-component="tool-title" data-running>
+                <span data-slot="name">{props.part.tool}</span>
+                <Show when={props.part.state.status === "running" && (props.part.state as any).input}>
+                  <span data-slot="target">
+                    {(props.part.state as any).input?.description}
+                    {(props.part.state as any).input?.filePath}
+                    {(props.part.state as any).input?.pattern}
+                  </span>
+                </Show>
+                <span data-slot="status">{t().common.running}</span>
+              </div>
+            </div>
         )}
         {props.part.type === "tool" &&
           props.part.state.status === "completed" &&
@@ -480,6 +535,7 @@ function formatErrorString(error: string): JSX.Element {
   );
 }
 
+
 export function TodoWriteTool(props: ToolProps) {
   const { t } = useI18n();
   const priority: Record<Todo["status"], number> = {
@@ -496,74 +552,186 @@ export function TodoWriteTool(props: ToolProps) {
   const finished = () => todos().every((t: Todo) => t.status === "completed");
 
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">
-          <Switch fallback={t().parts.updatingPlan}>
-            <Match when={starting()}>{t().parts.creatingPlan}</Match>
-            <Match when={finished()}>{t().parts.completingPlan}</Match>
-          </Switch>
-        </span>
-      </div>
-      <Show when={todos().length > 0}>
-        <ul data-component="todos">
-          <For each={todos()}>
-            {(todo) => (
-              <li data-slot="item" data-status={todo.status}>
-                <span></span>
-                {todo.content}
-              </li>
-            )}
-          </For>
-        </ul>
-      </Show>
-    </>
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">
+            <Switch fallback={t().parts.updatingPlan}>
+              <Match when={starting()}>{t().parts.creatingPlan}</Match>
+              <Match when={finished()}>{t().parts.completingPlan}</Match>
+            </Switch>
+          </span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+      
+      <Collapsible.Content>
+        <Show when={todos().length > 0}>
+          <ul data-component="todos">
+            <For each={todos()}>
+              {(todo) => (
+                <li data-slot="item" data-status={todo.status}>
+                  <span></span>
+                  {todo.content}
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
-export function GrepTool(props: ToolProps) {
+function TaskTool(props: ToolProps) {
   const { t } = useI18n();
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Grep</span>
-        <span data-slot="target">
-          &ldquo;{props.state.input.pattern}&rdquo;
-        </span>
-      </div>
-      <div data-component="tool-result">
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Task</span>
+          <span data-slot="target">{props.state.input.description}</span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <div data-component="tool-input">
+          &ldquo;{props.state.input.prompt}&rdquo;
+        </div>
+        <div data-component="tool-output">
+           <ContentMarkdown expand text={props.state.output} />
+        </div>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
+  );
+}
+
+
+export function FallbackTool(props: ToolProps) {
+  return (
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">{props.tool}</span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <div data-component="tool-args">
+          <For each={flattenToolArgs(props.state.input)}>
+            {(arg) => (
+              <>
+                <div></div>
+                <div>{arg[0]}</div>
+                <div>{arg[1]}</div>
+              </>
+            )}
+          </For>
+        </div>
         <Switch>
-          <Match
-            when={
-              props.state.metadata?.matches && props.state.metadata?.matches > 0
-            }
-          >
-            <ResultsButton
-              showCopy={
-                props.state.metadata?.matches === 1
-                  ? formatMessage(t().parts.match, {
-                      count: props.state.metadata?.matches,
-                    })
-                  : formatMessage(t().parts.matches, {
-                      count: props.state.metadata?.matches,
-                    })
-              }
-            >
-              <ContentText expand compact text={props.state.output} />
-            </ResultsButton>
-          </Match>
           <Match when={props.state.output}>
-            <ContentText
-              expand
-              compact
-              text={props.state.output}
-              data-size="sm"
-              data-color="dimmed"
-            />
+            <div data-component="tool-result">
+                <ContentText
+                  expand
+                  compact
+                  text={props.state.output}
+                  data-size="sm"
+                  data-color="dimmed"
+                />
+            </div>
           </Match>
         </Switch>
-      </div>
-    </>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
+  );
+}
+
+// Converts nested objects/arrays into [path, value] pairs.
+// E.g. {a:{b:{c:1}}, d:[{e:2}, 3]} => [["a.b.c",1], ["d[0].e",2], ["d[1]",3]]
+function flattenToolArgs(obj: any, prefix: string = ""): Array<[string, any]> {
+  const entries: Array<[string, any]> = [];
+
+  for (const [key, value] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+
+    if (value !== null && typeof value === "object") {
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+          const arrayPath = `${path}[${index}]`;
+          if (item !== null && typeof item === "object") {
+            entries.push(...flattenToolArgs(item, arrayPath));
+          } else {
+            entries.push([arrayPath, item]);
+          }
+        });
+      } else {
+        entries.push(...flattenToolArgs(value, path));
+      }
+    } else {
+      entries.push([path, value]);
+    }
+  }
+
+  return entries;
+}
+
+
+
+export function GrepTool(props: ToolProps) {
+  const { t } = useI18n();
+  const matchCount = () => props.state.metadata?.matches ?? 0;
+  
+  return (
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Grep</span>
+          <span data-slot="target" title={props.state.input.pattern}>
+            &ldquo;{props.state.input.pattern}&rdquo;
+          </span>
+          <Show when={props.state.status === "completed"}>
+            <span data-slot="summary" data-color="dimmed">
+              {matchCount() === 1 
+                ? formatMessage(t().parts.match, { count: matchCount() })
+                : formatMessage(t().parts.matches, { count: matchCount() })}
+            </span>
+          </Show>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+      
+      <Collapsible.Content>
+         <div data-component="tool-result">
+           <Switch>
+             <Match when={matchCount() > 0 || props.state.output}>
+                <ContentText expand compact text={props.state.output} />
+             </Match>
+           </Switch>
+         </div>
+         <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
@@ -575,49 +743,67 @@ export function ListTool(props: ToolProps) {
   );
 
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">LS</span>
-        <span data-slot="target" title={props.state.input?.path}>
-          {path()}
-        </span>
-      </div>
-      <div data-component="tool-result">
-        <Switch>
-          <Match when={props.state.output}>
-            <ResultsButton>
-              <ContentText expand compact text={props.state.output} />
-            </ResultsButton>
-          </Match>
-        </Switch>
-      </div>
-    </>
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">LS</span>
+          <span data-slot="target" title={props.state.input?.path}>
+            {path()}
+          </span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <div data-component="tool-result">
+          <Switch>
+            <Match when={props.state.output}>
+               <ContentText expand compact text={props.state.output} />
+            </Match>
+          </Switch>
+        </div>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
 export function WebFetchTool(props: ToolProps) {
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Fetch</span>
-        <span data-slot="target">{props.state.input.url}</span>
-      </div>
-      <div data-component="tool-result">
-        <Switch>
-          <Match when={props.state.metadata?.error}>
-            <ContentError>{formatErrorString(props.state.output)}</ContentError>
-          </Match>
-          <Match when={props.state.output}>
-            <ResultsButton>
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Fetch</span>
+          <span data-slot="target" title={props.state.input.url}>{props.state.input.url}</span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <div data-component="tool-result">
+          <Switch>
+            <Match when={props.state.metadata?.error}>
+              <ContentError>{formatErrorString(props.state.output)}</ContentError>
+            </Match>
+            <Match when={props.state.output}>
               <ContentCode
                 lang={props.state.input.format || "text"}
                 code={props.state.output}
               />
-            </ResultsButton>
-          </Match>
-        </Switch>
-      </div>
-    </>
+            </Match>
+          </Switch>
+        </div>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
@@ -626,41 +812,33 @@ export function ReadTool(props: ToolProps) {
   const filePath = createMemo(() =>
     stripWorkingDirectory(props.state.input?.filePath, props.message.path?.cwd),
   );
+  const lineCount = createMemo(() => {
+    const lines = props.state.metadata?.lines;
+    if (typeof lines === "number") return lines;
+    // Try to count from output
+    if (props.state.output) {
+      return props.state.output.split("\n").length;
+    }
+    return null;
+  });
 
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Read</span>
-        <span data-slot="target" title={props.state.input?.filePath}>
-          {filePath()}
+    <div data-component="tool-title">
+      <span data-slot="name">Read</span>
+      <span data-slot="target" title={props.state.input?.filePath}>
+        {filePath()}
+      </span>
+      <Show when={lineCount() !== null}>
+        <span data-slot="summary" data-color="dimmed">
+          {formatMessage(t().parts.lines, { count: lineCount() })}
         </span>
-      </div>
-      <div data-component="tool-result">
-        <Switch>
-          <Match when={props.state.metadata?.error}>
-            <ContentError>{formatErrorString(props.state.output)}</ContentError>
-          </Match>
-          <Match when={typeof props.state.metadata?.preview === "string"}>
-            <ResultsButton showCopy={t().common.showPreview} hideCopy={t().common.hidePreview}>
-              <ContentCode
-                lang={getShikiLang(filePath() || "")}
-                code={props.state.metadata?.preview}
-              />
-            </ResultsButton>
-          </Match>
-          <Match
-            when={
-              typeof props.state.metadata?.preview !== "string" &&
-              props.state.output
-            }
-          >
-            <ResultsButton>
-              <ContentText expand compact text={props.state.output} />
-            </ResultsButton>
-          </Match>
-        </Switch>
-      </div>
-    </>
+      </Show>
+      <Show when={props.state.metadata?.error}>
+        <span data-slot="error" data-color="red">
+          {t().common.error}
+        </span>
+      </Show>
+    </div>
   );
 }
 
@@ -677,32 +855,41 @@ export function WriteTool(props: ToolProps) {
   );
 
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Write</span>
-        <span data-slot="target" title={props.state.input?.filePath}>
-          {filePath()}
-        </span>
-      </div>
-      <Show when={diagnostics().length > 0}>
-        <ContentError>{diagnostics()}</ContentError>
-      </Show>
-      <div data-component="tool-result">
-        <Switch>
-          <Match when={props.state.metadata?.error}>
-            <ContentError>{formatErrorString(props.state.output)}</ContentError>
-          </Match>
-          <Match when={props.state.input?.content}>
-            <ResultsButton showCopy={t().common.showContents} hideCopy={t().common.hideContents}>
-              <ContentCode
-                lang={getShikiLang(filePath() || "")}
-                code={props.state.input?.content}
-              />
-            </ResultsButton>
-          </Match>
-        </Switch>
-      </div>
-    </>
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Write</span>
+          <span data-slot="target" title={props.state.input?.filePath}>
+            {filePath()}
+          </span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <Show when={diagnostics().length > 0}>
+          <ContentError>{diagnostics()}</ContentError>
+        </Show>
+        <div data-component="tool-result">
+          <Switch>
+            <Match when={props.state.metadata?.error}>
+              <ContentError>{formatErrorString(props.state.output)}</ContentError>
+            </Match>
+            <Match when={props.state.input?.content}>
+               <ContentCode
+                 lang={getShikiLang(filePath() || "")}
+                 code={props.state.input?.content}
+               />
+            </Match>
+          </Switch>
+        </div>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
@@ -718,91 +905,122 @@ export function EditTool(props: ToolProps) {
   );
 
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Edit</span>
-        <span data-slot="target" title={props.state.input?.filePath}>
-          {filePath()}
-        </span>
-      </div>
-      <div data-component="tool-result">
-        <Switch>
-          <Match when={props.state.metadata?.error}>
-            <ContentError>
-              {formatErrorString(props.state.metadata?.message || "")}
-            </ContentError>
-          </Match>
-          <Match when={props.state.metadata?.diff}>
-            <div data-component="diff">
-              <ContentDiff
-                diff={props.state.metadata?.diff}
-                lang={getShikiLang(filePath() || "")}
-              />
-            </div>
-          </Match>
-        </Switch>
-      </div>
-      <Show when={diagnostics().length > 0}>
-        <ContentError>{diagnostics()}</ContentError>
-      </Show>
-    </>
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Edit</span>
+          <span data-slot="target" title={props.state.input?.filePath}>
+            {filePath()}
+          </span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <div data-component="tool-result">
+          <Switch>
+            <Match when={props.state.metadata?.error}>
+              <ContentError>
+                {formatErrorString(props.state.metadata?.message || "")}
+              </ContentError>
+            </Match>
+            <Match when={props.state.metadata?.diff}>
+              <div data-component="diff">
+                <ContentDiff
+                  diff={props.state.metadata?.diff}
+                  lang={getShikiLang(filePath() || "")}
+                />
+              </div>
+            </Match>
+          </Switch>
+        </div>
+        <Show when={diagnostics().length > 0}>
+          <ContentError>{diagnostics()}</ContentError>
+        </Show>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
 export function BashTool(props: ToolProps) {
   return (
-    <ContentBash
-      command={props.state.input.command}
-      output={props.state.metadata?.output ?? props.state.metadata?.stdout}
-      description={props.state.metadata?.description}
-    />
+    <Collapsible defaultOpen={false}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+           <span data-slot="name">Bash</span>
+           <span data-slot="target" title={props.state.input.command} style={{ "font-family": "monospace", "font-size": "0.75rem" }}>
+             {props.state.input.command.length > 50 
+               ? props.state.input.command.slice(0, 50) + "..." 
+               : props.state.input.command}
+           </span>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+      
+      <Collapsible.Content>
+         <ContentBash
+          command={props.state.input.command}
+          output={props.state.metadata?.output ?? props.state.metadata?.stdout}
+          description={props.state.metadata?.description}
+        />
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
+          />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
 export function GlobTool(props: ToolProps) {
   const { t } = useI18n();
+  const count = () => props.state.metadata?.count ?? 0;
+
   return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Glob</span>
-        <span data-slot="target">
-          &ldquo;{props.state.input.pattern}&rdquo;
-        </span>
-      </div>
-      <Switch>
-        <Match
-          when={props.state.metadata?.count && props.state.metadata?.count > 0}
-        >
-          <div data-component="tool-result">
-            <ResultsButton
-              showCopy={
-                props.state.metadata?.count === 1
-                  ? formatMessage(t().parts.result, {
-                      count: props.state.metadata?.count,
-                    })
-                  : formatMessage(t().parts.results, {
-                      count: props.state.metadata?.count,
-                    })
-              }
-            >
-              <ContentText expand compact text={props.state.output} />
-            </ResultsButton>
+    <Collapsible defaultOpen={false}>
+       <Collapsible.Trigger>
+          <div data-component="tool-title">
+            <span data-slot="name">Glob</span>
+            <span data-slot="target">
+              &ldquo;{props.state.input.pattern}&rdquo;
+            </span>
+             <Show when={props.state.status === "completed"}>
+              <span data-slot="summary" data-color="dimmed">
+                {count() === 1 
+                  ? formatMessage(t().parts.result, { count: count() })
+                  : formatMessage(t().parts.results, { count: count() })}
+              </span>
+            </Show>
           </div>
-        </Match>
-        <Match when={props.state.output}>
-          <ContentText
-            expand
-            text={props.state.output}
-            data-size="sm"
-            data-color="dimmed"
+          <Collapsible.Arrow />
+       </Collapsible.Trigger>
+
+       <Collapsible.Content>
+        <Switch>
+          <Match when={count() > 0 || props.state.output}>
+            <div data-component="tool-result">
+                 <ContentText expand compact text={props.state.output} />
+            </div>
+          </Match>
+        </Switch>
+        <ToolFooter
+            time={DateTime.fromMillis(props.state.time.end)
+              .diff(DateTime.fromMillis(props.state.time.start))
+              .toMillis()}
           />
-        </Match>
-      </Switch>
-    </>
+       </Collapsible.Content>
+    </Collapsible>
   );
 }
 
 interface ResultsButtonProps extends ParentProps {
+
   showCopy?: string;
   hideCopy?: string;
 }
@@ -857,90 +1075,6 @@ function ToolFooter(props: { time: number }) {
   );
 }
 
-function TaskTool(props: ToolProps) {
-  const { t } = useI18n();
-  return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">Task</span>
-        <span data-slot="target">{props.state.input.description}</span>
-      </div>
-      <div data-component="tool-input">
-        &ldquo;{props.state.input.prompt}&rdquo;
-      </div>
-      <ResultsButton showCopy={t().common.showOutput} hideCopy={t().common.hideOutput}>
-        <div data-component="tool-output">
-          <ContentMarkdown expand text={props.state.output} />
-        </div>
-      </ResultsButton>
-    </>
-  );
-}
-
-export function FallbackTool(props: ToolProps) {
-  return (
-    <>
-      <div data-component="tool-title">
-        <span data-slot="name">{props.tool}</span>
-      </div>
-      <div data-component="tool-args">
-        <For each={flattenToolArgs(props.state.input)}>
-          {(arg) => (
-            <>
-              <div></div>
-              <div>{arg[0]}</div>
-              <div>{arg[1]}</div>
-            </>
-          )}
-        </For>
-      </div>
-      <Switch>
-        <Match when={props.state.output}>
-          <div data-component="tool-result">
-            <ResultsButton>
-              <ContentText
-                expand
-                compact
-                text={props.state.output}
-                data-size="sm"
-                data-color="dimmed"
-              />
-            </ResultsButton>
-          </div>
-        </Match>
-      </Switch>
-    </>
-  );
-}
-
-// Converts nested objects/arrays into [path, value] pairs.
-// E.g. {a:{b:{c:1}}, d:[{e:2}, 3]} => [["a.b.c",1], ["d[0].e",2], ["d[1]",3]]
-function flattenToolArgs(obj: any, prefix: string = ""): Array<[string, any]> {
-  const entries: Array<[string, any]> = [];
-
-  for (const [key, value] of Object.entries(obj)) {
-    const path = prefix ? `${prefix}.${key}` : key;
-
-    if (value !== null && typeof value === "object") {
-      if (Array.isArray(value)) {
-        value.forEach((item, index) => {
-          const arrayPath = `${path}[${index}]`;
-          if (item !== null && typeof item === "object") {
-            entries.push(...flattenToolArgs(item, arrayPath));
-          } else {
-            entries.push([arrayPath, item]);
-          }
-        });
-      } else {
-        entries.push(...flattenToolArgs(value, path));
-      }
-    } else {
-      entries.push([path, value]);
-    }
-  }
-
-  return entries;
-}
 
 function getProvider(model: string) {
   const lowerModel = model.toLowerCase();
@@ -971,5 +1105,60 @@ export function ProviderIcon(props: { model: string; size?: number }) {
         <IconMeta width={size} height={size} />
       </Match>
     </Switch>
+  );
+}
+
+// Permission Prompt Component
+interface PermissionPromptProps {
+  permission: Permission.Request;
+  onRespond?: (sessionID: string, permissionID: string, reply: Permission.Reply) => void;
+}
+
+function PermissionPrompt(props: PermissionPromptProps) {
+  const { t } = useI18n();
+
+  const handleRespond = (reply: Permission.Reply) => {
+    if (props.onRespond) {
+      props.onRespond(props.permission.sessionID, props.permission.id, reply);
+    }
+  };
+
+  return (
+    <div data-component="permission-prompt">
+      <div data-slot="permission-info">
+        <span data-slot="permission-type">{props.permission.permission}</span>
+        <Show when={props.permission.patterns.length > 0}>
+          <span data-slot="permission-patterns">
+            {props.permission.patterns.join(", ")}
+          </span>
+        </Show>
+      </div>
+      <div data-slot="permission-actions">
+        <button
+          type="button"
+          data-slot="permission-button"
+          data-variant="deny"
+          onClick={() => handleRespond("reject")}
+        >
+          {t().permission.deny}
+        </button>
+        <button
+          type="button"
+          data-slot="permission-button"
+          data-variant="always"
+          onClick={() => handleRespond("always")}
+        >
+          {t().permission.allowAlways}
+        </button>
+        <button
+          type="button"
+          data-slot="permission-button"
+          data-variant="once"
+          onClick={() => handleRespond("once")}
+        >
+          {t().permission.allowOnce}
+        </button>
+      </div>
+    </div>
   );
 }
