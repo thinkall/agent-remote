@@ -23,28 +23,27 @@ export default function Settings() {
   const checkConnection = async (url: string) => {
     setChecking(true);
     try {
-      const testUrl = `${url}/session`; 
+      const testUrl = `${url}/session`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
-        const response = await fetch(testUrl, { 
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal
+        const response = await fetch(testUrl, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
         });
         clearTimeout(timeoutId);
 
         if (response.ok || response.status === 401 || response.status === 403) {
-            return true;
+          return true;
         } else {
-            throw new Error(`${t().settings.serverError} ${response.status}`);
+          throw new Error(`${t().settings.serverError} ${response.status}`);
         }
       } catch (e: any) {
-         clearTimeout(timeoutId);
-         throw e;
+        clearTimeout(timeoutId);
+        throw e;
       }
-
     } catch (error: any) {
       console.error("[Settings] Connection check failed:", error);
       throw new Error(`${t().settings.connectionFailed} ${error.message}`);
@@ -54,23 +53,26 @@ export default function Settings() {
   };
 
   const handleTestConnection = async () => {
-      setSaveStatus(null);
-      let url = serverUrl().trim();
-      if (!url) {
-        setSaveStatus({ type: "error", message: t().settings.serverUrlEmpty });
-        return;
-      }
-      if (url.endsWith("/")) {
-        url = url.slice(0, -1);
-      }
-      
-      try {
-          await checkConnection(url);
-          setSaveStatus({ type: "success", message: t().settings.connectionSuccess });
-      } catch (error: any) {
-          setSaveStatus({ type: "error", message: error.message });
-      }
-  }
+    setSaveStatus(null);
+    let url = serverUrl().trim();
+    if (!url) {
+      setSaveStatus({ type: "error", message: t().settings.serverUrlEmpty });
+      return;
+    }
+    if (url.endsWith("/")) {
+      url = url.slice(0, -1);
+    }
+
+    try {
+      await checkConnection(url);
+      setSaveStatus({
+        type: "success",
+        message: t().settings.connectionSuccess,
+      });
+    } catch (error: any) {
+      setSaveStatus({ type: "error", message: error.message });
+    }
+  };
 
   const handleSave = async () => {
     console.log("[Settings] Saving configuration");
@@ -79,11 +81,11 @@ export default function Settings() {
 
     try {
       let url = serverUrl().trim();
-      
+
       if (!url) {
         throw new Error(t().settings.serverUrlEmpty);
       }
-      
+
       if (url.endsWith("/")) {
         url = url.slice(0, -1);
       }
@@ -99,9 +101,9 @@ export default function Settings() {
       }, 1000);
     } catch (error: any) {
       console.error("[Settings] Failed to save config:", error);
-      setSaveStatus({ 
-        type: "error", 
-        message: error.message || t().settings.saveFailed 
+      setSaveStatus({
+        type: "error",
+        message: error.message || t().settings.saveFailed,
       });
     } finally {
       setSaving(false);
@@ -113,107 +115,205 @@ export default function Settings() {
   };
 
   return (
-    <div class="flex h-screen bg-gray-50 dark:bg-zinc-900">
-      <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex h-screen bg-gray-50 dark:bg-zinc-900 font-sans text-gray-900 dark:text-gray-100">
+      <div class="flex-1 flex flex-col overflow-hidden max-w-4xl mx-auto w-full">
         {/* Header */}
-        <header class="flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-800 border-b dark:border-zinc-700">
-          <div class="flex items-center gap-4">
-            <button
-              onClick={handleCancel}
-              class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+        <header class="flex items-center gap-4 px-6 py-6">
+          <button
+            onClick={handleCancel}
+            class="p-2 -ml-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
             >
-              ← {t().settings.back}
-            </button>
-            <h1 class="text-xl font-bold text-gray-800 dark:text-white">
-              {t().settings.title}
-            </h1>
-          </div>
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+            {t().settings.title}
+          </h1>
         </header>
 
         {/* Main Content */}
-        <main class="flex-1 overflow-y-auto">
-          <div class="max-w-2xl mx-auto px-6 py-8">
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border dark:border-zinc-700 p-6 mb-6">
-              <div class="mb-6">
-                <span class="text-lg font-semibold text-gray-800 dark:text-white mb-2 block">
-                  {t().settings.language}
-                </span>
-                <div class="inline-block">
-                  <LanguageSwitcher />
+        <main class="flex-1 overflow-y-auto px-6 pb-8">
+          <div class="space-y-8">
+            {/* General Settings Section */}
+            <section>
+              <h2 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 px-1">
+                General
+              </h2>
+              <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
+                {/* Language Setting */}
+                <div class="p-4 sm:p-6 flex items-center justify-between gap-4">
+                  <div>
+                    <h3 class="text-base font-medium text-gray-900 dark:text-white">
+                      {t().settings.language}
+                    </h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Choose your preferred interface language
+                    </p>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <LanguageSwitcher />
+                  </div>
                 </div>
               </div>
+            </section>
 
-              <label class="block">
-                <span class="text-lg font-semibold text-gray-800 dark:text-white mb-2 block">
-                  {t().settings.serverUrl}
-                </span>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  {t().settings.serverUrlDesc}
-                </p>
-
-                <div class="flex gap-2">
-                    <input
-                    type="text"
-                    value={serverUrl()}
-                    onInput={(e) => setServerUrl(e.currentTarget.value)}
-                    placeholder="http://localhost:4096"
-                    class="flex-1 px-4 py-3 bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono"
-                    />
-                    <button
+            {/* Connection Settings Section */}
+            <section>
+              <h2 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 px-1">
+                Connection
+              </h2>
+              <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
+                <div class="p-4 sm:p-6 space-y-6">
+                  {/* Server URL Input */}
+                  <div>
+                    <label class="block text-base font-medium text-gray-900 dark:text-white mb-2">
+                      {t().settings.serverUrl}
+                    </label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      {t().settings.serverUrlDesc}
+                    </p>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        value={serverUrl()}
+                        onInput={(e) => setServerUrl(e.currentTarget.value)}
+                        placeholder="http://localhost:4096"
+                        class="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-sm"
+                      />
+                      <button
                         onClick={handleTestConnection}
                         disabled={checking() || saving() || !serverUrl()}
-                        class="px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-zinc-600 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-                    >
-                        {checking() ? t().settings.testing : t().settings.testConnection}
-                    </button>
+                        class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-gray-700 dark:text-gray-200 font-medium border border-gray-300 dark:border-zinc-600 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap text-sm"
+                      >
+                        {checking()
+                          ? t().settings.testing
+                          : t().settings.testConnection}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Connection Info Alert */}
+                  <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg">
+                    <div class="flex gap-3">
+                      <div class="flex-shrink-0 text-blue-600 dark:text-blue-400 mt-0.5">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" x2="12" y1="16" y2="12" />
+                          <line x1="12" x2="12.01" y1="8" y2="8" />
+                        </svg>
+                      </div>
+                      <div class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                        <p class="font-medium">{t().settings.infoTitle}</p>
+                        <ul class="list-disc list-inside space-y-0.5 opacity-90 ml-1">
+                          <li>{t().settings.infoDefault}</li>
+                          <li>{t().settings.infoRemote}</li>
+                          <li>{t().settings.infoChange}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </label>
+              </div>
+            </section>
+          </div>
+        </main>
+
+        {/* Footer Actions */}
+        <footer class="p-6 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800">
+          <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Status Message */}
+            <div class="w-full sm:w-auto min-h-[24px]">
+              <Show when={saveStatus()}>
+                <div
+                  class={`flex items-center gap-2 text-sm ${
+                    saveStatus()?.type === "success"
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  <Show
+                    when={saveStatus()?.type === "success"}
+                    fallback={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" x2="12" y1="8" y2="12" />
+                        <line x1="12" x2="12.01" y1="16" y2="16" />
+                      </svg>
+                    }
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  </Show>
+                  {saveStatus()?.message}
+                </div>
+              </Show>
             </div>
 
-            {/* Save Status */}
-            <Show when={saveStatus()}>
-              <div
-                class={`p-4 rounded-lg mb-6 ${
-                  saveStatus()?.type === "success"
-                    ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800"
-                    : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800"
-                }`}
-              >
-                {saveStatus()?.message}
-              </div>
-            </Show>
-
             {/* Action Buttons */}
-            <div class="flex gap-4">
-              <button
-                onClick={handleSave}
-                disabled={saving() || checking() || !serverUrl()}
-                class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-              >
-                {saving() ? t().settings.saving : t().settings.saveAndConnect}
-              </button>
+            <div class="flex gap-3 w-full sm:w-auto">
               <button
                 onClick={handleCancel}
                 disabled={saving() || checking()}
-                class="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50"
+                class="flex-1 sm:flex-none px-5 py-2.5 bg-white hover:bg-gray-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 font-medium border border-gray-300 dark:border-zinc-600 rounded-lg transition-colors disabled:opacity-50 text-sm shadow-sm"
               >
                 {t().common.cancel}
               </button>
-            </div>
-
-            {/* Info Box */}
-            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <h3 class="text-blue-800 dark:text-blue-200 font-semibold mb-2 text-sm">
-                💡 {t().settings.infoTitle}
-              </h3>
-              <ul class="text-blue-700 dark:text-blue-300 text-sm space-y-1">
-                <li>• {t().settings.infoDefault}</li>
-                <li>• {t().settings.infoRemote}</li>
-                <li>• {t().settings.infoChange}</li>
-              </ul>
+              <button
+                onClick={handleSave}
+                disabled={saving() || checking() || !serverUrl()}
+                class="flex-1 sm:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 min-w-[140px]"
+              >
+                <Show when={saving()} fallback={t().settings.saveAndConnect}>
+                  <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {t().settings.saving}
+                </Show>
+              </button>
             </div>
           </div>
-        </main>
+        </footer>
       </div>
     </div>
   );
