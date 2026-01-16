@@ -53,7 +53,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/anthropics/opencode-remote.git
+git clone https://github.com/realDuang/opencode-remote.git
 cd opencode-remote
 
 # 安装依赖
@@ -272,7 +272,7 @@ lsof -ti:5174 | xargs kill -9
 
 - [OpenCode](https://opencode.ai) — AI 编程助手
 - [文档](https://opencode.ai/docs) — OpenCode 文档
-- [问题反馈](https://github.com/anthropics/opencode-remote/issues) — 报告 Bug 或请求功能
+- [问题反馈](https://github.com/realDuang/opencode-remote/issues) — 报告 Bug 或请求功能
 
 ---
 

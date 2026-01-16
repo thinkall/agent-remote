@@ -53,7 +53,7 @@ But what if you want to **use your phone on the couch**, **pair program from an 
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/opencode-remote.git
+git clone https://github.com/realDuang/opencode-remote.git
 cd opencode-remote
 
 # Install dependencies
@@ -272,7 +272,7 @@ Contributions are welcome! Please read our contributing guidelines before submit
 
 - [OpenCode](https://opencode.ai) — The AI coding agent
 - [Documentation](https://opencode.ai/docs) — OpenCode documentation
-- [Issues](https://github.com/anthropics/opencode-remote/issues) — Report bugs or request features
+- [Issues](https://github.com/realDuang/opencode-remote/issues) — Report bugs or request features
 
 ---
 
