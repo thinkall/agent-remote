@@ -228,9 +228,7 @@ export function SessionTurn(props: SessionTurnProps) {
     return result;
   });
 
-  const handleStepsToggle = () => {
-    setStepsExpanded((prev) => !prev);
-  };
+  const handleStepsToggle = () => setStepsExpanded((prev) => !prev);
 
   return (
     <div class={styles.sessionTurn} data-component="session-turn">

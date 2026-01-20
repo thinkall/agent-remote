@@ -26,9 +26,11 @@ export class OpenCodeClient {
   }
 
   async createSession(title?: string, modelID?: string, providerID?: string) {
-    const body: any = { title };
-    if (modelID) body.modelID = modelID;
-    if (providerID) body.providerID = providerID;
+    const body = {
+      title,
+      ...(modelID && { modelID }),
+      ...(providerID && { providerID }),
+    };
 
     return this.request<Session.Info>("/session", {
       method: "POST",
@@ -54,26 +56,16 @@ export class OpenCodeClient {
       providerID?: string;
     },
   ) {
-    const body: any = {
-      parts: [
-        {
-          type: "text",
-          text: text,
+    const body = {
+      parts: [{ type: "text", text }],
+      ...(options?.agent && { agent: options.agent }),
+      ...(options?.modelID && options?.providerID && {
+        model: {
+          providerID: options.providerID,
+          modelID: options.modelID,
         },
-      ],
+      }),
     };
-    // OpenCode API uses 'agent' field to specify the agent/mode
-    // agent can be "build" or "plan"
-    if (options?.agent) {
-      body.agent = options.agent;
-    }
-    // OpenCode API 期望 model 是一个包含 providerID 和 modelID 的对象
-    if (options?.modelID && options?.providerID) {
-      body.model = {
-        providerID: options.providerID,
-        modelID: options.modelID,
-      };
-    }
 
     return this.request(`/session/${sessionId}/message`, {
       method: "POST",
@@ -148,32 +140,32 @@ export class OpenCodeClient {
         const parsed = JSON.parse(event.data);
         console.log("[SSE Client] Parsed data:", parsed);
 
-        // OpenCode 的 SSE 格式：{ payload: { type: "...", properties: {...} } }
-        if (parsed.payload) {
-          const eventType = parsed.payload.type;
-          const properties = parsed.payload.properties;
+        if (!parsed.payload) return;
 
-          console.log("[SSE Client] Event type:", eventType);
-          console.log("[SSE Client] Properties:", properties);
+        const eventType = parsed.payload.type;
+        const properties = parsed.payload.properties;
 
-          // 根据不同的事件类型提取数据
-          if (eventType === "message.part.updated" && properties.part) {
-            onEvent({ type: "message.part.updated", data: properties.part });
-          } else if (eventType === "session.updated" && properties.info) {
-            onEvent({ type: "session.updated", data: properties.info });
-          } else if (eventType === "session.created" && properties.info) {
-            onEvent({ type: "session.created", data: properties.info });
-          } else if (eventType === "message.updated" && properties.info) {
-            onEvent({ type: "message.updated", data: properties.info });
-          } else if (eventType === "permission.asked") {
-            // Permission request event - properties is the PermissionRequest itself
-            onEvent({ type: "permission.asked", data: properties });
-          } else if (eventType === "permission.replied") {
-            // Permission response event - remove from pending
-            onEvent({ type: "permission.replied", data: properties });
-          } else {
-            console.log("[SSE Client] Unhandled event type:", eventType);
+        console.log("[SSE Client] Event type:", eventType);
+        console.log("[SSE Client] Properties:", properties);
+
+        // Event type to data property mapping
+        const eventDataMap: Record<string, string | null> = {
+          "message.part.updated": "part",
+          "session.updated": "info",
+          "session.created": "info",
+          "message.updated": "info",
+          "permission.asked": null, // Use properties directly
+          "permission.replied": null,
+        };
+
+        if (eventType in eventDataMap) {
+          const dataKey = eventDataMap[eventType];
+          const data = dataKey ? properties[dataKey] : properties;
+          if (data) {
+            onEvent({ type: eventType, data });
           }
+        } else {
+          console.log("[SSE Client] Unhandled event type:", eventType);
         }
       } catch (e) {
         console.error(

@@ -52,15 +52,19 @@ export default function Settings() {
     }
   };
 
+  // Helper to normalize and validate URL
+  const getNormalizedUrl = (): string | null => {
+    const url = serverUrl().trim();
+    if (!url) return null;
+    return url.endsWith("/") ? url.slice(0, -1) : url;
+  };
+
   const handleTestConnection = async () => {
     setSaveStatus(null);
-    let url = serverUrl().trim();
+    const url = getNormalizedUrl();
     if (!url) {
       setSaveStatus({ type: "error", message: t().settings.serverUrlEmpty });
       return;
-    }
-    if (url.endsWith("/")) {
-      url = url.slice(0, -1);
     }
 
     try {
@@ -80,20 +84,13 @@ export default function Settings() {
     setSaveStatus(null);
 
     try {
-      let url = serverUrl().trim();
-
+      const url = getNormalizedUrl();
       if (!url) {
         throw new Error(t().settings.serverUrlEmpty);
       }
 
-      if (url.endsWith("/")) {
-        url = url.slice(0, -1);
-      }
-
       await checkConnection(url);
-
       client.setServerUrl(url);
-
       setSaveStatus({ type: "success", message: t().settings.urlUpdated });
 
       setTimeout(() => {

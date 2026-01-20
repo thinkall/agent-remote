@@ -17,9 +17,58 @@ import {
 import { MessageList } from "../components/MessageList";
 import { PromptInput } from "../components/PromptInput";
 import { SessionSidebar } from "../components/SessionSidebar";
-import { MessageV2, Permission } from "../types/opencode";
+import { MessageV2, Permission, Session } from "../types/opencode";
 import { useI18n } from "../lib/i18n";
 import { AgentMode } from "../components/PromptInput";
+
+// Binary search helper (consistent with opencode desktop)
+function binarySearch<T>(
+  arr: T[],
+  target: string,
+  getId: (item: T) => string,
+): { found: boolean; index: number } {
+  let left = 0;
+  let right = arr.length;
+
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    const midId = getId(arr[mid]);
+
+    if (midId === target) {
+      return { found: true, index: mid };
+    } else if (midId < target) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+
+  return { found: false, index: left };
+}
+
+// Helper to process raw session data into SessionInfo format
+function processSession(
+  s: Session.Info,
+  defaultTitle: string,
+): {
+  id: string;
+  title: string;
+  directory: string;
+  parentID?: string;
+  createdAt: string;
+  updatedAt: string;
+  summary?: { additions: number; deletions: number; files: number };
+} {
+  return {
+    id: s.id,
+    title: s.title || defaultTitle,
+    directory: s.directory || "",
+    parentID: s.parentID,
+    createdAt: new Date(s.time.created).toISOString(),
+    updatedAt: new Date(s.time.updated).toISOString(),
+    summary: s.summary,
+  };
+}
 
 export default function Chat() {
   const { t } = useI18n();
@@ -57,9 +106,7 @@ export default function Chat() {
     }
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen());
-  };
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
   // Window Resize Listener for Mobile State
   createEffect(() => {
@@ -242,29 +289,19 @@ export default function Chat() {
   };
 
   const handleSSEEvent = (event: { type: string; data: any }) => {
-    // console.log("[SSE] Event received:", event.type, event.data); // Reduce noise
-
     const sessionId = sessionStore.current;
     if (!sessionId) return;
 
-    // Handle events following opencode desktop implementation
-    if (event.type === "message.part.updated") {
-      const part = event.data as MessageV2.Part;
-      const messageId = part.messageID;
+    switch (event.type) {
+      case "message.part.updated": {
+        const part = event.data as MessageV2.Part;
+        const messageId = part.messageID;
+        const parts = messageStore.part[messageId] || [];
+        const index = binarySearch(parts, part.id, (p) => p.id);
 
-      // Get or initialize parts array
-      const parts = messageStore.part[messageId] || [];
-
-      // Use binary search to find insertion/update position (keep sorted by id)
-      const index = binarySearch(parts, part.id, (p) => p.id);
-
-      if (index.found) {
-        // Update existing part
-        setMessageStore("part", messageId, index.index, part);
-      } else {
-        // Insert new part (keep sorted)
-        // If parts array doesn't exist for this messageId, initialize it
-        if (!messageStore.part[messageId]) {
+        if (index.found) {
+          setMessageStore("part", messageId, index.index, part);
+        } else if (!messageStore.part[messageId]) {
           setMessageStore("part", messageId, [part]);
         } else {
           setMessageStore("part", messageId, (draft) => {
@@ -273,27 +310,18 @@ export default function Chat() {
             return newParts;
           });
         }
+        setTimeout(scrollToBottom, 0);
+        break;
       }
 
-      setTimeout(scrollToBottom, 0);
-    }
+      case "message.updated": {
+        const msgInfo = event.data as MessageV2.Info;
+        const messages = messageStore.message[sessionId] || [];
+        const index = binarySearch(messages, msgInfo.id, (m) => m.id);
 
-    if (event.type === "message.updated") {
-      const msgInfo = event.data as MessageV2.Info;
-
-      // Get or initialize messages array
-      const messages = messageStore.message[sessionId] || [];
-
-      // Use binary search to find insertion/update position
-      const index = binarySearch(messages, msgInfo.id, (m) => m.id);
-
-      if (index.found) {
-        // Update existing message
-        setMessageStore("message", sessionId, index.index, msgInfo);
-      } else {
-        // Insert new message (keep sorted)
-        // If messages array doesn't exist for this sessionId, initialize it
-        if (!messageStore.message[sessionId]) {
+        if (index.found) {
+          setMessageStore("message", sessionId, index.index, msgInfo);
+        } else if (!messageStore.message[sessionId]) {
           setMessageStore("message", sessionId, [msgInfo]);
         } else {
           setMessageStore("message", sessionId, (draft) => {
@@ -302,74 +330,46 @@ export default function Chat() {
             return newMessages;
           });
         }
+        break;
       }
-    }
 
-    if (event.type === "session.updated") {
-      const updated = event.data;
-      setSessionStore("list", (list) =>
-        list.map((s) =>
-          s.id === updated.id
-            ? {
-              ...s,
-              id: updated.id,
-              title: updated.title || t().sidebar.newSession,
-              directory: updated.directory || s.directory || "",
-              createdAt: new Date(updated.time.created).toISOString(),
-              updatedAt: new Date(updated.time.updated).toISOString(),
-            }
-            : s,
-        ),
-      );
-    }
-
-    // Handle permission events
-    if (event.type === "permission.asked") {
-      const permission = event.data as Permission.Request;
-      console.log("[SSE] Permission asked:", permission);
-      
-      // Add to permission queue for this session
-      const existing = messageStore.permission[permission.sessionID] || [];
-      // Avoid duplicates
-      if (!existing.find(p => p.id === permission.id)) {
-        setMessageStore("permission", permission.sessionID, [...existing, permission]);
+      case "session.updated": {
+        const updated = event.data;
+        setSessionStore("list", (list) =>
+          list.map((s) =>
+            s.id === updated.id
+              ? {
+                  ...s,
+                  title: updated.title || t().sidebar.newSession,
+                  directory: updated.directory || s.directory || "",
+                  createdAt: new Date(updated.time.created).toISOString(),
+                  updatedAt: new Date(updated.time.updated).toISOString(),
+                }
+              : s,
+          ),
+        );
+        break;
       }
-    }
 
-    if (event.type === "permission.replied") {
-      const { sessionID, requestID } = event.data as { sessionID: string; requestID: string };
-      console.log("[SSE] Permission replied:", requestID);
-      
-      // Remove from permission queue
-      const existing = messageStore.permission[sessionID] || [];
-      setMessageStore("permission", sessionID, existing.filter(p => p.id !== requestID));
+      case "permission.asked": {
+        const permission = event.data as Permission.Request;
+        console.log("[SSE] Permission asked:", permission);
+        const existing = messageStore.permission[permission.sessionID] || [];
+        if (!existing.find((p) => p.id === permission.id)) {
+          setMessageStore("permission", permission.sessionID, [...existing, permission]);
+        }
+        break;
+      }
+
+      case "permission.replied": {
+        const { sessionID, requestID } = event.data as { sessionID: string; requestID: string };
+        console.log("[SSE] Permission replied:", requestID);
+        const existing = messageStore.permission[sessionID] || [];
+        setMessageStore("permission", sessionID, existing.filter((p) => p.id !== requestID));
+        break;
+      }
     }
   };
-
-  // Binary search helper (consistent with opencode desktop)
-  function binarySearch<T>(
-    arr: T[],
-    target: string,
-    getId: (item: T) => string,
-  ): { found: boolean; index: number } {
-    let left = 0;
-    let right = arr.length;
-
-    while (left < right) {
-      const mid = Math.floor((left + right) / 2);
-      const midId = getId(arr[mid]);
-
-      if (midId === target) {
-        return { found: true, index: mid };
-      } else if (midId < target) {
-        left = mid + 1;
-      } else {
-        right = mid;
-      }
-    }
-
-    return { found: false, index: left };
-  }
 
   const handleSendMessage = async (text: string, agent: AgentMode) => {
     const sessionId = sessionStore.current;

@@ -69,13 +69,7 @@ export default function RemoteAccess() {
     }
   };
 
-  const handleTunnelToggle = async () => {
-    if (tunnelEnabled()) {
-      await stopTunnel();
-    } else {
-      await startTunnel();
-    }
-  };
+  const handleTunnelToggle = () => tunnelEnabled() ? stopTunnel() : startTunnel();
 
   const startTunnel = async () => {
     setLoading(true);
