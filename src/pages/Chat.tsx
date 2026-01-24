@@ -364,9 +364,9 @@ export default function Chat() {
           const session = sessionStore.list.find((s) => s.id === targetSessionId);
           const isDefaultTitle = !session?.title || session.title === t().sidebar.newSession;
           
-          if (isDefaultTitle) {
+          if (isDefaultTitle && msgInfo.providerID && msgInfo.modelID) {
             setSummarizedSessions((prev) => new Set(prev).add(targetSessionId));
-            client.summarizeSession(targetSessionId).catch((err) => {
+            client.summarizeSession(targetSessionId, msgInfo.providerID, msgInfo.modelID).catch((err) => {
               logger.error("[Summarize] Failed:", err);
             });
           }

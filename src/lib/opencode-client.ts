@@ -91,9 +91,10 @@ export class OpenCodeClient {
     });
   }
 
-  async summarizeSession(id: string) {
+  async summarizeSession(id: string, providerID: string, modelID: string) {
     return this.request<void>(`/session/${id}/summarize`, {
       method: "POST",
+      body: JSON.stringify({ providerID, modelID }),
     });
   }
 
