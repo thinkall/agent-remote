@@ -78,6 +78,11 @@ export interface LocaleDict {
     connection: string;
     language: string;
     languageDesc: string;
+    theme: string;
+    themeDesc: string;
+    themeLight: string;
+    themeDark: string;
+    themeSystem: string;
     infoTitle: string;
     infoDefault: string;
     infoRemote: string;
@@ -170,6 +175,8 @@ export interface LocaleDict {
     makingEdits: string;
     runningCommands: string;
     gatheringThoughts: string;
+    organizingContext: string;
+    contextOrganized: string;
   };
 
   // Devices page
@@ -309,6 +316,11 @@ export const en: LocaleDict = {
     connection: "Connection",
     language: "Language",
     languageDesc: "Choose your preferred interface language",
+    theme: "Theme",
+    themeDesc: "Choose your preferred color theme",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System",
     infoTitle: "Info",
     infoDefault: "Default address is usually /opencode-api (pointing to local proxy)",
     infoRemote: "If connecting to a remote server, make sure the network is reachable",
@@ -401,6 +413,8 @@ export const en: LocaleDict = {
     makingEdits: "Making edits",
     runningCommands: "Running commands",
     gatheringThoughts: "Gathering thoughts",
+    organizingContext: "Organizing context",
+    contextOrganized: "Context organized",
   },
 
   // Devices page

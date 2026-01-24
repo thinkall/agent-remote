@@ -399,7 +399,7 @@ export default function Chat() {
       time: {
         created: Date.now(),
       },
-      parts: [],  // Info doesn't include parts
+      parts: [],
     };
 
     const tempPart: MessageV2.Part = {
@@ -410,10 +410,8 @@ export default function Chat() {
       text,
     };
 
-    // Store following opencode desktop pattern
     const messages = messageStore.message[sessionId] || [];
 
-    // Insert message (keep sorted)
     const msgIndex = binarySearch(messages, tempMessageId, (m) => m.id);
     if (!msgIndex.found) {
       setMessageStore("message", sessionId, (draft) => {
@@ -423,7 +421,6 @@ export default function Chat() {
       });
     }
 
-    // Insert part
     setMessageStore("part", tempMessageId, [tempPart]);
     setTimeout(scrollToBottom, 0);
 

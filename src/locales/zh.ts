@@ -79,6 +79,11 @@ export const zh: LocaleDict = {
     connection: "连接",
     language: "语言",
     languageDesc: "选择您偏好的界面语言",
+    theme: "主题",
+    themeDesc: "选择您偏好的颜色主题",
+    themeLight: "浅色",
+    themeDark: "深色",
+    themeSystem: "跟随系统",
     infoTitle: "说明",
     infoDefault: "默认地址通常为 /opencode-api (指向本地代理)",
     infoRemote: "如果连接远程服务器，请确保网络可达",
@@ -171,6 +176,8 @@ export const zh: LocaleDict = {
     makingEdits: "进行编辑",
     runningCommands: "运行命令",
     gatheringThoughts: "整理思路",
+    organizingContext: "整理上下文",
+    contextOrganized: "上下文已整理",
   },
 
   // Devices page

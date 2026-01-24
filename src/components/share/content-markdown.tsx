@@ -2,7 +2,6 @@ import { marked } from "marked"
 import { codeToHtml } from "shiki"
 import markedShiki from "marked-shiki"
 import { createOverflow } from "./common"
-import { CopyButton } from "./copy-button"
 import { createResource, createSignal, createEffect } from "solid-js"
 import { transformerNotationDiff } from "@shikijs/transformers"
 import { useI18n } from "../../lib/i18n"
@@ -74,7 +73,6 @@ export function ContentMarkdown(props: Props) {
           {expanded() ? t().common.showLess : t().common.showMore}
         </button>
       )}
-      <CopyButton text={props.text} />
     </div>
   )
 }

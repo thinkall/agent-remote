@@ -49,9 +49,11 @@ export function PromptInput(props: PromptInputProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (props.disabled) return;
+    
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      if (text().trim() && !props.disabled) {
+      if (text().trim()) {
         props.onSend(text(), agent());
         setText("");
       }
@@ -59,7 +61,9 @@ export function PromptInput(props: PromptInputProps) {
   };
 
   const handleSend = () => {
-    if (text().trim() && !props.disabled) {
+    if (props.disabled) return;
+    
+    if (text().trim()) {
       props.onSend(text(), agent());
       setText("");
     }
@@ -111,6 +115,7 @@ export function PromptInput(props: PromptInputProps) {
         <textarea
           ref={setTextarea}
           value={text()}
+          disabled={props.disabled}
           onInput={(e) => {
             setText(e.currentTarget.value);
             adjustHeight();
@@ -118,8 +123,7 @@ export function PromptInput(props: PromptInputProps) {
           onKeyDown={handleKeyDown}
           placeholder={agent() === "plan" ? t().prompt.planPlaceholder : t().prompt.placeholder}
           rows={1}
-          disabled={props.disabled}
-          class="w-full px-4 py-3 pr-12 bg-transparent resize-none focus:outline-none dark:text-white disabled:opacity-50 max-h-[200px] overflow-y-auto"
+          class="w-full px-4 py-3 pr-12 bg-transparent resize-none focus:outline-none dark:text-white max-h-[200px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ "min-height": "52px" }}
         />
         <button

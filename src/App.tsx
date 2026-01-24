@@ -3,6 +3,7 @@ import { createEffect, createSignal, Show } from "solid-js";
 import { Auth } from "./lib/auth";
 import { I18nProvider } from "./lib/i18n";
 import { logger } from "./lib/logger";
+import "./lib/theme";
 import EntryPage from "./pages/EntryPage";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";

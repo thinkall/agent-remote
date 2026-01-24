@@ -1,12 +1,11 @@
 import {
   createMemo,
-  createSignal,
   For,
   Index,
   Show,
   Suspense,
 } from "solid-js";
-import { messageStore } from "../stores/message";
+import { messageStore, isExpanded, toggleExpanded } from "../stores/message";
 import { Part, ProviderIcon } from "./share/part";
 import { useI18n } from "../lib/i18n";
 import type { MessageV2, Permission } from "../types/opencode";
@@ -87,7 +86,19 @@ function formatDuration(startTime: number, endTime?: number): string {
 
 export function SessionTurn(props: SessionTurnProps) {
   const { t } = useI18n();
-  const [stepsExpanded, setStepsExpanded] = createSignal(false);
+  
+  const stepsExpandedKey = () => `steps-${props.userMessage.id}`;
+  const stepsExpanded = () => isExpanded(stepsExpandedKey());
+  const handleStepsToggle = () => toggleExpanded(stepsExpandedKey());
+
+  const isCompactingTurn = createMemo(() => {
+    for (const msg of props.assistantMessages) {
+      if (msg.summary === true || msg.mode === "compaction" || msg.agent === "compaction") {
+        return true;
+      }
+    }
+    return false;
+  });
 
   // Get user message parts
   const userParts = createMemo(
@@ -228,156 +239,171 @@ export function SessionTurn(props: SessionTurnProps) {
     return result;
   });
 
-  const handleStepsToggle = () => setStepsExpanded((prev) => !prev);
-
   return (
-    <div class={styles.sessionTurn} data-component="session-turn">
-      {/* User Message */}
-      <div class={styles.userMessage}>
-        <Index each={filteredUserParts()}>
-          {(part, partIndex) => (
-            <Part
-              last={props.isLastTurn && filteredUserParts().length === partIndex + 1}
-              part={part()}
-              index={partIndex}
-              message={props.userMessage}
-            />
-          )}
-        </Index>
-      </div>
+    <div class={styles.sessionTurn} data-component="session-turn" data-compacting={isCompactingTurn() ? "" : undefined}>
+      {/* Compacting Turn - Show simplified UI */}
+      <Show when={isCompactingTurn()} fallback={
+        <>
+          {/* User Message - Only show when there are displayable parts */}
+          <Show when={filteredUserParts().length > 0}>
+            <div class={styles.userMessage}>
+              <Index each={filteredUserParts()}>
+                {(part, partIndex) => (
+                  <Part
+                    last={props.isLastTurn && filteredUserParts().length === partIndex + 1}
+                    part={part()}
+                    index={partIndex}
+                    message={props.userMessage}
+                  />
+                )}
+              </Index>
+            </div>
+          </Show>
 
-      {/* Steps Trigger - Show when working or has steps */}
-      <Show when={props.isWorking || hasSteps()}>
-        <div class={styles.stepsTrigger}>
-          <button
-            type="button"
-            class={styles.stepsTriggerButton}
-            onClick={handleStepsToggle}
-            data-working={props.isWorking ? "" : undefined}
-          >
-            {/* Spinner when working */}
-            <Show when={props.isWorking}>
-              <Spinner size="small" />
-            </Show>
-            
-            {/* Model icon - show when not working */}
-            <Show when={!props.isWorking && modelInfo()?.modelID}>
-              <span class={styles.modelIcon} title={`${modelInfo()?.providerID} / ${modelInfo()?.modelID}`}>
-                <ProviderIcon model={modelInfo()?.modelID || ""} size={14} />
-              </span>
-            </Show>
-
-            {/* Status text */}
-            <span class={styles.statusText}>
-              <Show
-                when={props.isWorking}
-                fallback={
-                  stepsExpanded() ? t().steps.hideSteps : t().steps.showSteps
-                }
+          {/* Steps Trigger - Show when working or has steps */}
+          <Show when={props.isWorking || hasSteps()}>
+            <div class={styles.stepsTrigger}>
+              <button
+                type="button"
+                class={styles.stepsTriggerButton}
+                onClick={handleStepsToggle}
+                data-working={props.isWorking ? "" : undefined}
               >
-                {currentStatus()}
-              </Show>
-            </span>
+                {/* Spinner when working */}
+                <Show when={props.isWorking}>
+                  <Spinner size="small" />
+                </Show>
+                
+                {/* Model icon - show when not working */}
+                <Show when={!props.isWorking && modelInfo()?.modelID}>
+                  <span class={styles.modelIcon} title={`${modelInfo()?.providerID} / ${modelInfo()?.modelID}`}>
+                    <ProviderIcon model={modelInfo()?.modelID || ""} size={14} />
+                  </span>
+                </Show>
 
-            {/* Duration */}
-            <span class={styles.separator}>·</span>
-            <span class={styles.duration}>{duration()}</span>
+                {/* Status text */}
+                <span class={styles.statusText}>
+                  <Show
+                    when={props.isWorking}
+                    fallback={
+                      stepsExpanded() ? t().steps.hideSteps : t().steps.showSteps
+                    }
+                  >
+                    {currentStatus()}
+                  </Show>
+                </span>
 
-            {/* Expand/Collapse arrow */}
-            <Show when={props.assistantMessages.length > 0}>
-              <span
-                class={styles.arrow}
-                data-expanded={stepsExpanded() ? "" : undefined}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </span>
-            </Show>
-          </button>
-        </div>
-      </Show>
+                {/* Duration */}
+                <span class={styles.separator}>·</span>
+                <span class={styles.duration}>{duration()}</span>
 
-      {/* Expanded Steps Content */}
-      <Show when={stepsExpanded() && allStepsParts().length > 0}>
-        <div class={styles.stepsContent}>
-          <For each={allStepsParts()}>
-            {(item) => (
-              <div class={styles.assistantMessageParts}>
-                <Suspense>
-                  <Index each={item.parts}>
-                    {(part, partIndex) => (
-                      <Part
-                        last={false}
-                        part={part()}
-                        index={partIndex}
-                        message={item.message}
-                        permission={getPermissionForPart(part())}
-                        onPermissionRespond={props.onPermissionRespond}
-                      />
-                    )}
-                  </Index>
-                </Suspense>
-              </div>
-            )}
-          </For>
-        </div>
-      </Show>
+                {/* Expand/Collapse arrow */}
+                <Show when={props.assistantMessages.length > 0}>
+                  <span
+                    class={styles.arrow}
+                    data-expanded={stepsExpanded() ? "" : undefined}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </Show>
+              </button>
+            </div>
+          </Show>
 
-      {/* Permission prompts for running tools (show even when steps collapsed) */}
-      <Show when={permissions().length > 0 && !stepsExpanded()}>
-        <div class={styles.permissionPrompts}>
-          <For each={permissions()}>
-            {(perm) => {
-              // Find the tool part for this permission
-              for (const msg of props.assistantMessages) {
-                const parts = messageStore.part[msg.id] || [];
-                for (let i = 0; i < parts.length; i++) {
-                  const p = parts[i];
-                  if (p.type === "tool" && p.callID === perm.tool?.callID) {
-                    return (
-                      <Part
-                        last={false}
-                        part={p}
-                        index={i}
-                        message={msg}
-                        permission={perm}
-                        onPermissionRespond={props.onPermissionRespond}
-                      />
-                    );
+          {/* Expanded Steps Content */}
+          <Show when={stepsExpanded() && allStepsParts().length > 0}>
+            <div class={styles.stepsContent}>
+              <For each={allStepsParts()}>
+                {(item) => (
+                  <div class={styles.assistantMessageParts}>
+                    <Suspense>
+                      <Index each={item.parts}>
+                        {(part, partIndex) => (
+                          <Part
+                            last={false}
+                            part={part()}
+                            index={partIndex}
+                            message={item.message}
+                            permission={getPermissionForPart(part())}
+                            onPermissionRespond={props.onPermissionRespond}
+                          />
+                        )}
+                      </Index>
+                    </Suspense>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+
+          {/* Permission prompts for running tools (show even when steps collapsed) */}
+          <Show when={permissions().length > 0 && !stepsExpanded()}>
+            <div class={styles.permissionPrompts}>
+              <For each={permissions()}>
+                {(perm) => {
+                  // Find the tool part for this permission
+                  for (const msg of props.assistantMessages) {
+                    const parts = messageStore.part[msg.id] || [];
+                    for (let i = 0; i < parts.length; i++) {
+                      const p = parts[i];
+                      if (p.type === "tool" && p.callID === perm.tool?.callID) {
+                        return (
+                          <Part
+                            last={false}
+                            part={p}
+                            index={i}
+                            message={msg}
+                            permission={perm}
+                            onPermissionRespond={props.onPermissionRespond}
+                          />
+                        );
+                      }
+                    }
                   }
-                }
-              }
-              return null;
-            }}
-          </For>
-        </div>
-      </Show>
+                  return null;
+                }}
+              </For>
+            </div>
+          </Show>
 
-      {/* Response (last text part) - Always show when not working and has response */}
-      <Show when={!props.isWorking && lastTextPart()}>
-        <div class={styles.response}>
-          <div class={styles.responseHeader}>
-            <h3 class={styles.responseTitle}>{t().steps.response}</h3>
-          </div>
-          <div class={styles.responseContent}>
-            <Part
-              last={props.isLastTurn}
-              part={lastTextPart()!}
-              index={0}
-              message={props.assistantMessages.at(-1)!}
-            />
-          </div>
+          {/* Response (last text part) - Always show when not working and has response */}
+          <Show when={!props.isWorking && lastTextPart()}>
+            <div class={styles.response}>
+              <div class={styles.responseHeader}>
+                <h3 class={styles.responseTitle}>{t().steps.response}</h3>
+              </div>
+              <div class={styles.responseContent}>
+                <Part
+                  last={true}
+                  part={lastTextPart()!}
+                  index={0}
+                  message={props.assistantMessages.at(-1)!}
+                />
+              </div>
+            </div>
+          </Show>
+        </>
+      }>
+        {/* Compacting Turn - Simplified view */}
+        <div class={styles.compactingTurn}>
+          <span class={styles.compactingIcon}>📊</span>
+          <span class={styles.compactingText}>
+            {props.isWorking ? t().steps.organizingContext : t().steps.contextOrganized}
+          </span>
+          <span class={styles.separator}>·</span>
+          <span class={styles.duration}>{duration()}</span>
         </div>
       </Show>
     </div>

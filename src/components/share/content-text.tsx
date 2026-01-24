@@ -1,7 +1,6 @@
 import style from "./content-text.module.css"
 import { createSignal } from "solid-js"
 import { createOverflow } from "./common"
-import { CopyButton } from "./copy-button"
 import { useI18n } from "../../lib/i18n"
 
 interface Props {
@@ -33,7 +32,6 @@ export function ContentText(props: Props) {
           {expanded() ? t().common.showLess : t().common.showMore}
         </button>
       )}
-      <CopyButton text={props.text} />
     </div>
   )
 }

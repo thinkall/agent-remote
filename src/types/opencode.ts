@@ -16,7 +16,7 @@ export namespace MessageV2 {
       root: string;
       cwd: string;
     };
-    summary?: string;
+    summary?: boolean;
     tokens?: {
       input: number;
       output: number;
@@ -28,7 +28,8 @@ export namespace MessageV2 {
     };
     modelID?: string;
     providerID?: string;
-    mode?: "build" | "plan";
+    mode?: "build" | "plan" | "compaction";
+    agent?: string;
     system?: string;
     error?: string;
     parts: Part[];

@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { client } from "../lib/opencode-client";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useI18n } from "../lib/i18n";
 import { logger } from "../lib/logger";
 import { useAuthGuard } from "../lib/useAuthGuard";
@@ -153,7 +154,7 @@ export default function Settings() {
               </h2>
               <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-700 overflow-visible">
                 {/* Language Setting */}
-                <div class="p-4 sm:p-6 flex items-center justify-between gap-4">
+                <div class="p-4 sm:p-6 flex items-center justify-between gap-4 border-b border-gray-200 dark:border-zinc-700">
                   <div>
                     <h3 class="text-base font-medium text-gray-900 dark:text-white">
                       {t().settings.language}
@@ -164,6 +165,20 @@ export default function Settings() {
                   </div>
                   <div class="flex-shrink-0">
                     <LanguageSwitcher />
+                  </div>
+                </div>
+                {/* Theme Setting */}
+                <div class="p-4 sm:p-6 flex items-center justify-between gap-4">
+                  <div>
+                    <h3 class="text-base font-medium text-gray-900 dark:text-white">
+                      {t().settings.theme}
+                    </h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {t().settings.themeDesc}
+                    </p>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <ThemeSwitcher />
                   </div>
                 </div>
               </div>

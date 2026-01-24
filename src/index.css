@@ -11,19 +11,67 @@
   --color-text-strong: hsl(0, 5%, 12%);
   --color-border: hsl(30, 2%, 81%);
   --color-icon: hsl(0, 1%, 55%);
+
+  /* OpenCode share component colors - Light mode */
+  --sl-color-white: #ffffff;
+  --sl-color-text: #1f2937;
+  --sl-color-text-secondary: #6b7280;
+  --sl-color-text-dimmed: #9ca3af;
+  --sl-color-text-invert: #ffffff;
+  --sl-color-divider: #e5e7eb;
+  --sl-color-border: #e5e7eb;
+  --sl-color-hairline: #f3f4f6;
+  --sl-color-bg-surface: #ffffff;
+  --sl-color-bg-alt: #f9fafb;
+  --sl-color-bg-hover: #f3f4f6;
+  
+  /* Semantic colors - Light mode */
+  --sl-color-red: #ef4444;
+  --sl-color-red-low: #fef2f2;
+  --sl-color-red-high: #dc2626;
+  --sl-color-green: #22c55e;
+  --sl-color-green-low: #f0fdf4;
+  --sl-color-green-high: #16a34a;
+  --sl-color-blue-high: #2563eb;
+  --sl-color-orange: #f97316;
+  --sl-color-orange-low: #fff7ed;
+  --sl-color-orange-high: #ea580c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: hsl(0, 9%, 7%);
-    --color-background-weak: hsl(0, 6%, 10%);
-    --color-background-strong: hsl(0, 15%, 94%);
-    --color-text: hsl(0, 4%, 71%);
-    --color-text-weak: hsl(0, 2%, 49%);
-    --color-text-strong: hsl(0, 15%, 94%);
-    --color-border: hsl(0, 3%, 28%);
-    --color-icon: hsl(10, 3%, 43%);
-  }
+:root.dark {
+  --color-background: hsl(0, 9%, 7%);
+  --color-background-weak: hsl(0, 6%, 10%);
+  --color-background-strong: hsl(0, 15%, 94%);
+  --color-text: hsl(0, 4%, 71%);
+  --color-text-weak: hsl(0, 2%, 49%);
+  --color-text-strong: hsl(0, 15%, 94%);
+  --color-border: hsl(0, 3%, 28%);
+  --color-icon: hsl(10, 3%, 43%);
+
+  /* OpenCode share component colors - Dark mode */
+  --sl-color-white: #ffffff;
+  --sl-color-text: #f3f4f6;
+  --sl-color-text-secondary: #9ca3af;
+  --sl-color-text-dimmed: #6b7280;
+  --sl-color-text-invert: #1f2937;
+  --sl-color-divider: #374151;
+  --sl-color-border: #374151;
+  --sl-color-hairline: #1f2937;
+  --sl-color-bg-surface: #1f2937;
+  --sl-color-bg-alt: #111827;
+  --sl-color-bg-hover: #374151;
+  
+  /* Semantic colors - Dark mode */
+  --sl-color-red: #f87171;
+  --sl-color-red-low: #450a0a;
+  --sl-color-red-high: #fca5a5;
+  --sl-color-green: #4ade80;
+  --sl-color-green-low: #052e16;
+  --sl-color-green-high: #86efac;
+  --sl-color-blue-high: #60a5fa;
+  --sl-color-orange: #fb923c;
+  --sl-color-orange-low: #431407;
+  --sl-color-orange-high: #fdba74;
 }
 
 body {

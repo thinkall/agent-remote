@@ -48,6 +48,7 @@ import type { MessageV2, Permission } from "../../types/opencode";
 import type { Diagnostic } from "vscode-languageserver-types";
 import { useI18n, formatMessage } from "../../lib/i18n";
 import { logger } from "../../lib/logger";
+import { isExpanded, toggleExpanded, messageStore, setExpanded } from "../../stores/message";
 
 import styles from "./part.module.css";
 
@@ -94,22 +95,6 @@ export function Part(props: PartProps) {
             }}
           >
             <Switch>
-              <Match
-                when={
-                  props.message.role === "user" && props.part.type === "text"
-                }
-              >
-                <IconUserCircle width={18} height={18} />
-              </Match>
-              <Match
-                when={
-                  props.message.role === "user" && props.part.type === "file"
-                }
-              >
-                <IconPaperClip width={18} height={18} />
-              </Match>
-
-
               <Match
                 when={
                   props.part.type === "step-start" &&
@@ -204,7 +189,7 @@ export function Part(props: PartProps) {
       <div data-component="content">
         {props.message.role === "user" && props.part.type === "text" && (
           <div data-component="user-text">
-            <ContentText text={props.part.text} expand={props.last} />
+            <ContentMarkdown text={props.part.text} expand={props.last} />
           </div>
         )}
         {props.message.role === "assistant" && props.part.type === "text" && (
@@ -229,7 +214,7 @@ export function Part(props: PartProps) {
         )}
         {props.message.role === "assistant" && props.part.type === "reasoning" && (
           <div data-component="reasoning">
-             <Collapsible defaultOpen={false}>
+             <Collapsible open={isExpanded(`reasoning-${props.part.id}`)} onOpenChange={() => toggleExpanded(`reasoning-${props.part.id}`)}>
                 <Collapsible.Trigger>
                    <div data-slot="title">
                       <IconBrain width={14} height={14} />
@@ -248,8 +233,25 @@ export function Part(props: PartProps) {
 
         {props.message.role === "user" && props.part.type === "file" && (
           <div data-component="attachment">
-            <div data-slot="copy">{t().parts.attachment}</div>
-            <div data-slot="filename">{props.part.filename}</div>
+            <Show
+              when={props.part.mime.startsWith("image/")}
+              fallback={
+                <>
+                  <div data-slot="copy">{t().parts.attachment}</div>
+                  <div data-slot="filename">{props.part.filename}</div>
+                </>
+              }
+            >
+              <div data-slot="image-container">
+                <img
+                  src={props.part.url}
+                  alt={props.part.filename}
+                  data-slot="image"
+                  loading="lazy"
+                />
+                <div data-slot="image-filename">{props.part.filename}</div>
+              </div>
+            </Show>
           </div>
         )}
         {props.part.type === "step-start" &&
@@ -260,20 +262,22 @@ export function Part(props: PartProps) {
             </div>
           )}
         {props.part.type === "tool" && props.part.state.status === "error" && (
-          <Collapsible defaultOpen={false} class={styles.root}>
-            <Collapsible.Trigger>
-              <div data-component="tool-title">
-                <span data-slot="name">Error</span>
-                <span data-slot="target">{props.part.tool}</span>
-              </div>
-              <Collapsible.Arrow />
-            </Collapsible.Trigger>
-            <Collapsible.Content>
-              <ContentError>
-                {formatErrorString(props.part.state.error)}
-              </ContentError>
-            </Collapsible.Content>
-          </Collapsible>
+          <div data-component="tool" data-tool="error">
+            <Collapsible open={isExpanded(`error-${props.part.id}`)} onOpenChange={() => toggleExpanded(`error-${props.part.id}`)} class={styles.root}>
+              <Collapsible.Trigger>
+                <div data-component="tool-title">
+                  <span data-slot="name">Error</span>
+                  <span data-slot="target">{props.part.tool}</span>
+                </div>
+                <Collapsible.Arrow />
+              </Collapsible.Trigger>
+              <Collapsible.Content>
+                <ContentError>
+                  {formatErrorString(props.part.state.error)}
+                </ContentError>
+              </Collapsible.Content>
+            </Collapsible>
+          </div>
         )}
         {/* Tool with pending permission - show permission prompt */}
         {props.part.type === "tool" && props.permission && (
@@ -552,8 +556,11 @@ export function TodoWriteTool(props: ToolProps) {
   const starting = () => todos().every((t: Todo) => t.status === "pending");
   const finished = () => todos().every((t: Todo) => t.status === "completed");
 
+  const expandedKey = () => `todowrite-${props.id}`;
+  const expanded = () => messageStore.expanded[expandedKey()] ?? true;
+
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={expanded()} onOpenChange={() => setExpanded(expandedKey(), !expanded())}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">
@@ -592,7 +599,7 @@ export function TodoWriteTool(props: ToolProps) {
 function TaskTool(props: ToolProps) {
   const { t } = useI18n();
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">Task</span>
@@ -621,10 +628,13 @@ function TaskTool(props: ToolProps) {
 
 export function FallbackTool(props: ToolProps) {
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">{props.tool}</span>
+          {props.state.input?.description && (
+            <span data-slot="target">{props.state.input.description}</span>
+          )}
         </div>
         <Collapsible.Arrow />
       </Collapsible.Trigger>
@@ -700,7 +710,7 @@ export function GrepTool(props: ToolProps) {
   const matchCount = () => props.state.metadata?.matches ?? 0;
   
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">Grep</span>
@@ -744,7 +754,7 @@ export function ListTool(props: ToolProps) {
   );
 
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">LS</span>
@@ -775,7 +785,7 @@ export function ListTool(props: ToolProps) {
 
 export function WebFetchTool(props: ToolProps) {
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">Fetch</span>
@@ -816,7 +826,6 @@ export function ReadTool(props: ToolProps) {
   const lineCount = createMemo(() => {
     const lines = props.state.metadata?.lines;
     if (typeof lines === "number") return lines;
-    // Try to count from output
     if (props.state.output) {
       return props.state.output.split("\n").length;
     }
@@ -824,22 +833,43 @@ export function ReadTool(props: ToolProps) {
   });
 
   return (
-    <div data-component="tool-title">
-      <span data-slot="name">Read</span>
-      <span data-slot="target" title={props.state.input?.filePath}>
-        {filePath()}
-      </span>
-      <Show when={lineCount() !== null}>
-        <span data-slot="summary" data-color="dimmed">
-          {formatMessage(t().parts.lines, { count: lineCount() })}
-        </span>
-      </Show>
-      <Show when={props.state.metadata?.error}>
-        <span data-slot="error" data-color="red">
-          {t().common.error}
-        </span>
-      </Show>
-    </div>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
+      <Collapsible.Trigger>
+        <div data-component="tool-title">
+          <span data-slot="name">Read</span>
+          <span data-slot="target" title={props.state.input?.filePath}>
+            {filePath()}
+          </span>
+          <Show when={lineCount() !== null}>
+            <span data-slot="summary" data-color="dimmed">
+              {formatMessage(t().parts.lines, { count: lineCount() })}
+            </span>
+          </Show>
+          <Show when={props.state.metadata?.error}>
+            <span data-slot="error" data-color="red">
+              {t().common.error}
+            </span>
+          </Show>
+        </div>
+        <Collapsible.Arrow />
+      </Collapsible.Trigger>
+
+      <Collapsible.Content>
+        <Show when={props.state.output}>
+          <div data-component="tool-result">
+            <ContentCode
+              lang={getShikiLang(filePath() || "")}
+              code={props.state.output}
+            />
+          </div>
+        </Show>
+        <ToolFooter
+          time={DateTime.fromMillis(props.state.time.end)
+            .diff(DateTime.fromMillis(props.state.time.start))
+            .toMillis()}
+        />
+      </Collapsible.Content>
+    </Collapsible>
   );
 }
 
@@ -856,7 +886,7 @@ export function WriteTool(props: ToolProps) {
   );
 
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">Write</span>
@@ -906,7 +936,7 @@ export function EditTool(props: ToolProps) {
   );
 
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
           <span data-slot="name">Edit</span>
@@ -950,7 +980,7 @@ export function EditTool(props: ToolProps) {
 
 export function BashTool(props: ToolProps) {
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
       <Collapsible.Trigger>
         <div data-component="tool-title">
            <span data-slot="name">Bash</span>
@@ -984,7 +1014,7 @@ export function GlobTool(props: ToolProps) {
   const count = () => props.state.metadata?.count ?? 0;
 
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible open={isExpanded(props.id)} onOpenChange={() => toggleExpanded(props.id)}>
        <Collapsible.Trigger>
           <div data-component="tool-title">
             <span data-slot="name">Glob</span>
