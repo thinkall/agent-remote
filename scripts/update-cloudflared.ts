@@ -21,7 +21,7 @@ interface Platform {
 
 // Cloudflare official download links
 // Reference: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
-const PLATFORMS: Platform[] = [
+const ALL_PLATFORMS: Platform[] = [
   {
     name: "darwin",
     arch: "arm64",
@@ -42,10 +42,52 @@ const PLATFORMS: Platform[] = [
   },
 ];
 
+/**
+ * Get the platform to download based on current system or TARGET_ARCH env var.
+ * TARGET_ARCH can be set to override the architecture (useful for cross-compilation in CI).
+ */
+function getPlatformsToDownload(): Platform[] {
+  const currentPlatform = process.platform; // "darwin" or "win32"
+  const systemArch = process.arch; // "arm64" or "x64"
+  const envTargetArch = process.env.TARGET_ARCH;
+  
+  // Debug logging for CI troubleshooting
+  console.log(`🔍 System info: platform=${currentPlatform}, arch=${systemArch}`);
+  console.log(`🔍 TARGET_ARCH env: ${envTargetArch || "(not set)"}`);
+  
+  // Allow TARGET_ARCH env var to override (for CI cross-compilation)
+  const targetArch = envTargetArch || (systemArch === "arm64" ? "arm64" : "x64");
+  
+  const filtered = ALL_PLATFORMS.filter(
+    (p) => p.name === currentPlatform && p.arch === targetArch
+  );
+  
+  if (filtered.length === 0) {
+    console.error(`❌ No matching platform for ${currentPlatform}-${targetArch}`);
+    console.error(`   Available platforms: ${ALL_PLATFORMS.map(p => `${p.name}-${p.arch}`).join(", ")}`);
+    process.exit(1);
+  }
+  
+  console.log(`🔧 Downloading for platform: ${currentPlatform}-${targetArch}`);
+  return filtered;
+}
+
 async function downloadFile(url: string, destPath: string): Promise<void> {
   console.log(`  Downloading from: ${url}`);
+  
+  // Build headers with optional GitHub token for downloads from GitHub
+  const headers: Record<string, string> = {
+    "User-Agent": "opencode-remote-updater",
+  };
+  
+  // Use GITHUB_TOKEN if available (helps with rate limits for GitHub downloads)
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (githubToken && url.includes("github.com")) {
+    headers["Authorization"] = `Bearer ${githubToken}`;
+  }
+  
   const response = await fetch(url, {
-    headers: { "User-Agent": "opencode-remote-updater" },
+    headers,
     redirect: "follow",
   });
 
@@ -120,7 +162,8 @@ async function updateCloudflared(): Promise<void> {
   console.log("🔍 Downloading latest Cloudflared binaries...");
 
   try {
-    for (const platform of PLATFORMS) {
+    const platformsToDownload = getPlatformsToDownload();
+    for (const platform of platformsToDownload) {
       const dirPath = join(RESOURCES_DIR, `${platform.name}-${platform.arch}`);
 
       if (!existsSync(dirPath)) {

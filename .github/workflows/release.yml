@@ -3,6 +3,10 @@ name: Build and Release
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
 
 # Ensure only one release job runs at a time
 concurrency:
@@ -20,6 +24,7 @@ jobs:
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version: ${{ steps.check.outputs.version }}
+      is_pr: ${{ steps.check.outputs.is_pr }}
 
     steps:
       - name: Checkout repository
@@ -30,7 +35,27 @@ jobs:
       - name: Check for version change
         id: check
         run: |
-          # Get current version from package.json
+          # For PRs, always build to validate the pipeline
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR build - will build but skip release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "is_pr=true" >> $GITHUB_OUTPUT
+            echo "version=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For tag pushes, extract version from tag
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"  # Remove 'v' prefix
+            echo "Tag push detected: v$VERSION"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For main branch push, check package.json version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
           
@@ -41,6 +66,7 @@ jobs:
           else
             echo "Tag v$CURRENT_VERSION does not exist, will create release"
             echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           fi
 
@@ -49,10 +75,15 @@ jobs:
     name: Build macOS (${{ matrix.arch }})
     needs: check-version
     if: needs.check-version.outputs.should_release == 'true'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        arch: [arm64, x64]
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x64
+            runner: macos-15-intel
 
     steps:
       - name: Checkout repository
@@ -68,9 +99,15 @@ jobs:
 
       - name: Download OpenCode binary
         run: bun run update:opencode
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Cloudflared binary
         run: bun run update:cloudflared
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build app
         run: bun run build
@@ -110,9 +147,13 @@ jobs:
 
       - name: Download OpenCode binary
         run: bun run update:opencode
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Cloudflared binary
         run: bun run update:cloudflared
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build app
         run: bun run build
@@ -127,11 +168,11 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
 
-  # Create GitHub Release
+  # Create GitHub Release (skip for PRs)
   release:
     name: Create Release
     needs: [check-version, build-macos, build-windows]
-    if: needs.check-version.outputs.should_release == 'true'
+    if: needs.check-version.outputs.should_release == 'true' && needs.check-version.outputs.is_pr != 'true'
     runs-on: ubuntu-latest
 
     steps:
