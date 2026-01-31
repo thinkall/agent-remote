@@ -72,7 +72,7 @@ The desktop app bundles everything you need — no additional installation requi
 
 ```bash
 # Clone the repository
-git clone https://github.com/realDuang/agent-remote.git
+git clone https://github.com/thinkall/agent-remote.git
 cd agent-remote
 
 # Install dependencies
@@ -90,7 +90,7 @@ bun run dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/realDuang/agent-remote.git
+git clone https://github.com/thinkall/agent-remote.git
 cd agent-remote
 
 # Install dependencies
@@ -296,7 +296,7 @@ Contributions are welcome! Please read our contributing guidelines before submit
 - [OpenCode](https://opencode.ai) — The open-source AI coding agent
 - [GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) — GitHub Copilot CLI documentation
 - [Agent Client Protocol](https://agentclientprotocol.com/) — Protocol for AI agent communication
-- [Issues](https://github.com/realDuang/agent-remote/issues) — Report bugs or request features
+- [Issues](https://github.com/thinkall/agent-remote/issues) — Report bugs or request features
 
 ---
 

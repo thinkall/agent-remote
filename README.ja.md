@@ -63,7 +63,7 @@ OpenCode、GitHub Copilot CLI、Claude Code などの AI コーディングエ�
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/realDuang/opencode-remote.git
+git clone https://github.com/thinkall/agent-remote.git
 cd opencode-remote
 
 # 依存関係をインストール
@@ -282,7 +282,7 @@ lsof -ti:5174 | xargs kill -9
 
 - [OpenCode](https://opencode.ai) — AI コーディングエージェント
 - [ドキュメント](https://opencode.ai/docs) — OpenCode ドキュメント
-- [イシュー](https://github.com/realDuang/opencode-remote/issues) — バグ報告や機能リクエスト
+- [イシュー](https://github.com/thinkall/agent-remote/issues) — バグ報告や機能リクエスト
 
 ---
 

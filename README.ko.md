@@ -63,7 +63,7 @@ OpenCode, GitHub Copilot CLI, Claude Code 등의 AI 코딩 에이전트는 다�
 
 ```bash
 # 저장소 클론
-git clone https://github.com/realDuang/opencode-remote.git
+git clone https://github.com/thinkall/agent-remote.git
 cd opencode-remote
 
 # 의존성 설치
@@ -282,7 +282,7 @@ lsof -ti:5174 | xargs kill -9
 
 - [OpenCode](https://opencode.ai) — AI 코딩 에이전트
 - [문서](https://opencode.ai/docs) — OpenCode 문서
-- [이슈](https://github.com/realDuang/opencode-remote/issues) — 버그 신고 또는 기능 요청
+- [이슈](https://github.com/thinkall/agent-remote/issues) — 버그 신고 또는 기능 요청
 
 ---
 
