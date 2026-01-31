@@ -1,49 +1,50 @@
 <div align="center">
 
-# OpenCode Remote
+# Agent Remote
 
 **[English](./README.md)** | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md)
 
-**Access OpenCode or GitHub Copilot CLI from Any Device, Anywhere**
+**Connect to Your AI Coding Agent from Anywhere**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![OpenCode](https://img.shields.io/badge/OpenCode-1.1.15+-green.svg)](https://opencode.ai)
+[![OpenCode](https://img.shields.io/badge/OpenCode-Supported-green.svg)](https://opencode.ai)
 [![Copilot CLI](https://img.shields.io/badge/Copilot%20CLI-Supported-purple.svg)](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
-
-<img src="https://opencode.ai/logo.svg" alt="OpenCode Remote" width="120" />
 
 *Use your powerful workstation to run AI coding agents while accessing them from a tablet, phone, or any browser — even across the internet.*
 
-**Now with GitHub Copilot CLI support!** 🎉
+**Supports OpenCode, GitHub Copilot CLI, and more!**
 
 </div>
 
 ---
 
-## Why OpenCode Remote?
+## Why Agent Remote?
 
-AI coding agents like OpenCode and GitHub Copilot CLI need to run on machines with:
+AI coding agents like OpenCode, GitHub Copilot CLI, Claude Code, and others need to run on machines with:
 - Access to your codebase and development environment
 - Proper API keys and configurations
 - Sufficient computing power
 
 But what if you want to **use your phone on the couch**, **pair program from an iPad**, or **access your dev machine from anywhere in the world**?
 
-**OpenCode Remote** solves this by providing a desktop app and web interface that works from any device with a browser.
+**Agent Remote** solves this by providing a universal web interface that works with any CLI-based AI coding agent, accessible from any device with a browser.
 
-### Supported Backends
+### Supported Agents
 
-| Backend | Description |
-|---------|-------------|
-| **OpenCode** | The open-source AI coding agent from opencode.ai |
-| **GitHub Copilot CLI** | GitHub's official AI coding agent (requires Copilot subscription) |
+| Agent | Status | Description |
+|-------|--------|-------------|
+| **OpenCode** | ✅ Supported | The open-source AI coding agent from opencode.ai |
+| **GitHub Copilot CLI** | ✅ Supported | GitHub's official AI coding agent (requires Copilot subscription) |
+| **Claude Code** | 🔜 Planned | Anthropic's Claude-powered coding agent |
+| **Gemini CLI** | 🔜 Planned | Google's Gemini-powered coding agent |
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **Desktop App** | Native Electron app for macOS and Windows with bundled OpenCode and Cloudflare Tunnel |
-| **Remote Access from Any Device** | Access OpenCode through a clean web UI from phones, tablets, laptops — any device with a browser |
+| **Multiple Agent Support** | Works with OpenCode, GitHub Copilot CLI, and more |
+| **Desktop App** | Native Electron app for macOS and Windows with bundled tools |
+| **Remote Access from Any Device** | Access your agent through a clean web UI from phones, tablets, laptops — any device with a browser |
 | **One-Click Public Tunnel** | Enable internet access with a single toggle using Cloudflare Tunnel — no port forwarding or VPN needed |
 | **LAN Access** | Instantly accessible from any device on your local network |
 | **QR Code Connection** | Scan to connect from mobile devices — no typing URLs |
@@ -59,9 +60,9 @@ But what if you want to **use your phone on the couch**, **pair program from an 
 
 Download the latest release for your platform:
 
-- **macOS (Apple Silicon)**: `OpenCode Remote-x.x.x-arm64.dmg`
-- **macOS (Intel)**: `OpenCode Remote-x.x.x-x64.dmg`
-- **Windows**: `OpenCode Remote-x.x.x-setup.exe`
+- **macOS (Apple Silicon)**: `Agent Remote-x.x.x-arm64.dmg`
+- **macOS (Intel)**: `Agent Remote-x.x.x-x64.dmg`
+- **Windows**: `Agent Remote-x.x.x-setup.exe`
 
 The desktop app bundles everything you need — no additional installation required.
 
@@ -71,8 +72,8 @@ The desktop app bundles everything you need — no additional installation requi
 
 ```bash
 # Clone the repository
-git clone https://github.com/realDuang/opencode-remote.git
-cd opencode-remote
+git clone https://github.com/realDuang/agent-remote.git
+cd agent-remote
 
 # Install dependencies
 bun install
@@ -89,8 +90,8 @@ bun run dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/realDuang/opencode-remote.git
-cd opencode-remote
+git clone https://github.com/realDuang/agent-remote.git
+cd agent-remote
 
 # Install dependencies
 bun install
@@ -140,7 +141,7 @@ Access from anywhere in the world with Cloudflare Tunnel:
 │                          ↓                                │
 │                  Cloudflare Network                       │
 │                          ↓                                │
-│              Your Workstation (OpenCode)                  │
+│            Your Workstation (AI Agent)                    │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -150,7 +151,7 @@ Access from anywhere in the world with Cloudflare Tunnel:
 
 The desktop app includes a device management system:
 
-- **View connected devices**: See all devices that have accessed your OpenCode instance
+- **View connected devices**: See all devices that have accessed your agent instance
 - **Rename devices**: Give meaningful names to your devices
 - **Revoke access**: Remove devices you no longer want to have access
 - **Revoke all others**: Quickly revoke access from all devices except the current one
@@ -190,10 +191,10 @@ bun run typecheck
 ### Project Structure
 
 ```
-opencode-remote/
+agent-remote/
 ├── electron/
 │   ├── main/              # Electron main process
-│   │   ├── services/      # OpenCode process, tunnel, device store
+│   │   ├── services/      # Agent process, tunnel, device store
 │   │   └── ipc-handlers.ts
 │   └── preload/           # Preload scripts for IPC
 ├── src/
@@ -201,7 +202,7 @@ opencode-remote/
 │   ├── components/        # UI components
 │   ├── lib/               # Core libraries (API client, auth, i18n)
 │   ├── stores/            # State management
-│   └── types/             # TypeScript definitions (incl. Copilot ACP types)
+│   └── types/             # TypeScript definitions (incl. ACP types)
 ├── scripts/
 │   ├── start.ts           # OpenCode web mode startup
 │   ├── start-copilot.ts   # Copilot CLI web mode startup
@@ -229,7 +230,7 @@ opencode-remote/
 
 ## Security
 
-OpenCode Remote uses multiple layers of security:
+Agent Remote uses multiple layers of security:
 
 | Layer | Protection |
 |-------|------------|
@@ -292,16 +293,17 @@ Contributions are welcome! Please read our contributing guidelines before submit
 
 ## Links
 
-- [OpenCode](https://opencode.ai) — The AI coding agent
-- [OpenCode Documentation](https://opencode.ai/docs) — OpenCode documentation
+- [OpenCode](https://opencode.ai) — The open-source AI coding agent
 - [GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) — GitHub Copilot CLI documentation
-- [Agent Client Protocol](https://agentclientprotocol.com/) — Protocol used for Copilot CLI integration
-- [Issues](https://github.com/realDuang/opencode-remote/issues) — Report bugs or request features
+- [Agent Client Protocol](https://agentclientprotocol.com/) — Protocol for AI agent communication
+- [Issues](https://github.com/realDuang/agent-remote/issues) — Report bugs or request features
 
 ---
 
 <div align="center">
 
-**Built with [OpenCode](https://opencode.ai), [GitHub Copilot](https://github.com/features/copilot), [Electron](https://electronjs.org) and [SolidJS](https://solidjs.com)**
+**Connect to your AI coding agent from anywhere**
+
+Built with [Electron](https://electronjs.org) and [SolidJS](https://solidjs.com)
 
 </div>

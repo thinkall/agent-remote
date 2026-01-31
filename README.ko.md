@@ -1,32 +1,42 @@
 <div align="center">
 
-# OpenCode Remote
+# Agent Remote
 
 [English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md) | **[한국어](./README.ko.md)**
 
-**어디서든, 어떤 기기에서든 OpenCode에 접속하세요**
+**어디서든 AI 코딩 에이전트에 연결하세요**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![OpenCode](https://img.shields.io/badge/OpenCode-1.1.15+-green.svg)](https://opencode.ai)
-
-<img src="https://opencode.ai/logo.svg" alt="OpenCode Remote" width="120" />
+[![OpenCode](https://img.shields.io/badge/OpenCode-Supported-green.svg)](https://opencode.ai)
+[![Copilot CLI](https://img.shields.io/badge/Copilot%20CLI-Supported-purple.svg)](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 
 *강력한 워크스테이션에서 AI 코딩 에이전트를 실행하고, 태블릿, 스마트폰 또는 모든 브라우저에서 접속하세요 — 인터넷을 통해서도 가능합니다.*
+
+**OpenCode, GitHub Copilot CLI 등을 지원합니다!**
 
 </div>
 
 ---
 
-## 왜 OpenCode Remote인가요?
+## 왜 Agent Remote인가요?
 
-OpenCode와 같은 AI 코딩 에이전트는 다음 조건을 갖춘 머신에서 실행해야 합니다:
+OpenCode, GitHub Copilot CLI, Claude Code 등의 AI 코딩 에이전트는 다음 조건을 갖춘 머신에서 실행해야 합니다:
 - 코드베이스와 개발 환경에 대한 접근
 - 적절한 API 키와 구성
 - 충분한 컴퓨팅 파워
 
 하지만 **소파에서 스마트폰으로**, **iPad로 페어 프로그래밍을**, 또는 **세계 어디서나 개발 머신에 접속**하고 싶다면 어떻게 해야 할까요?
 
-**OpenCode Remote**는 브라우저가 있는 모든 기기에서 작동하는 웹 인터페이스를 제공하여 이 문제를 해결합니다.
+**Agent Remote**는 CLI 기반 AI 코딩 에이전트를 위한 범용 웹 인터페이스를 제공하여, 브라우저가 있는 모든 기기에서 접속할 수 있습니다.
+
+### 지원되는 에이전트
+
+| 에이전트 | 상태 | 설명 |
+|---------|------|------|
+| **OpenCode** | ✅ 지원됨 | opencode.ai의 오픈소스 AI 코딩 에이전트 |
+| **GitHub Copilot CLI** | ✅ 지원됨 | GitHub 공식 AI 코딩 에이전트 (Copilot 구독 필요) |
+| **Claude Code** | 🔜 예정 | Anthropic의 Claude 기반 코딩 에이전트 |
+| **Gemini CLI** | 🔜 예정 | Google의 Gemini 기반 코딩 에이전트 |
 
 ### 핵심 기능
 

@@ -1,13 +1,22 @@
-# OpenCode Remote - AI Agent Development Guide
+# Agent Remote - AI Agent Development Guide
 
 ## Project Overview
 
-**OpenCode Remote** is a standalone web interface for accessing OpenCode through a browser. It's a locally-run application that automatically starts an OpenCode server and provides a web UI with random access code authentication.
+**Agent Remote** is a universal web interface for accessing AI coding agents through a browser. It supports multiple backends including OpenCode, GitHub Copilot CLI, and more. It's a locally-run application that provides a web UI with random access code authentication.
+
+### Supported Agents
+
+| Agent | Status | Protocol |
+|-------|--------|----------|
+| **OpenCode** | ✅ Supported | REST API + SSE |
+| **GitHub Copilot CLI** | ✅ Supported | ACP (Agent Client Protocol) via bridge |
+| **Claude Code** | 🔜 Planned | TBD |
+| **Gemini CLI** | 🔜 Planned | TBD |
 
 ### Tech Stack
 
 - **Frontend Framework**: Vite + SolidJS
-- **Styling**: Tailwind CSS v3.4.0
+- **Styling**: Tailwind CSS v4
 - **Package Manager**: Bun
 - **Communication**: REST API + Server-Sent Events (SSE)
 - **Authentication**: 6-digit random code
@@ -16,7 +25,7 @@
 ### Project Structure
 
 ```
-opencode-remote/
+agent-remote/
 ├── src/
 │   ├── pages/          # Page components
 │   │   ├── Login.tsx   # Login page (6-digit code)
@@ -29,13 +38,13 @@ opencode-remote/
 │   │   ├── PromptInput.tsx     # Input box
 │   │   ├── ModelSelector.tsx   # Model selection dropdown
 │   │   ├── LanguageSwitcher.tsx # Language switcher component
-│   │   └── share/              # Message rendering components ported from OpenCode
+│   │   └── share/              # Message rendering components
 │   │       ├── part.tsx        # Part component entry
 │   │       ├── content-*.tsx   # Renderers for different content types
 │   │       └── icons/          # Icon components
 │   ├── lib/            # Core libraries
 │   │   ├── auth.ts             # Authentication management (localStorage)
-│   │   ├── opencode-client.ts  # OpenCode API client
+│   │   ├── opencode-client.ts  # OpenCode API client (also used for bridge)
 │   │   └── i18n.tsx            # i18n provider and utilities
 │   ├── locales/        # Translation files
 │   │   ├── en.ts               # English translations
@@ -45,10 +54,13 @@ opencode-remote/
 │   │   ├── message.ts  # Message state
 │   │   └── config.ts   # Configuration state
 │   ├── types/          # TypeScript type definitions
-│   │   └── opencode.ts # OpenCode API types
+│   │   ├── opencode.ts # OpenCode API types (also used for bridge)
+│   │   └── copilot-acp.ts # ACP protocol types for Copilot CLI
 │   └── main.tsx        # Application entry
 ├── scripts/
-│   └── start.ts        # Startup script (generate code + start services)
+│   ├── start.ts        # OpenCode startup script
+│   ├── start-copilot.ts # Copilot CLI startup script
+│   └── copilot-bridge.ts # ACP to REST bridge server
 ├── vite.config.ts      # Vite config (includes auth middleware)
 └── package.json        # Dependencies and scripts
 ```
@@ -59,16 +71,17 @@ opencode-remote/
 
 ### 1. Startup Process
 
-**Start Command**: `bun run start`
+**For OpenCode**: `bun run start`
+**For GitHub Copilot CLI**: `bun run start:copilot`
 
 Execution flow:
 
-1. `scripts/start.ts` generates a 6-digit random access code
+1. Startup script generates a 6-digit random access code
 2. Access code saved to `.auth-code` file
 3. Console displays access code (user needs to remember it)
 4. Concurrent startup:
    - Vite dev server (port 5174)
-   - OpenCode server (port 4096)
+   - Agent backend (OpenCode on port 4096, or Copilot Bridge on port 4096 + ACP on port 4097)
 
 ### 2. Authentication Flow
 

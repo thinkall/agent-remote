@@ -1,32 +1,42 @@
 <div align="center">
 
-# OpenCode Remote
+# Agent Remote
 
 [English](./README.md) | **[简体中文](./README.zh-CN.md)** | [日本語](./README.ja.md) | [한국어](./README.ko.md)
 
-**随时随地，从任意设备访问 OpenCode**
+**随时随地，连接你的 AI 编程助手**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![OpenCode](https://img.shields.io/badge/OpenCode-1.1.15+-green.svg)](https://opencode.ai)
-
-<img src="https://opencode.ai/logo.svg" alt="OpenCode Remote" width="120" />
+[![OpenCode](https://img.shields.io/badge/OpenCode-Supported-green.svg)](https://opencode.ai)
+[![Copilot CLI](https://img.shields.io/badge/Copilot%20CLI-Supported-purple.svg)](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 
 *在高性能工作站上运行 AI 编程助手，通过平板、手机或任何浏览器远程访问——甚至跨越互联网。*
+
+**支持 OpenCode、GitHub Copilot CLI 等多种 AI 编程助手！**
 
 </div>
 
 ---
 
-## 为什么选择 OpenCode Remote？
+## 为什么选择 Agent Remote？
 
-像 OpenCode 这样的 AI 编程助手需要运行在以下条件的机器上：
+像 OpenCode、GitHub Copilot CLI、Claude Code 等 AI 编程助手需要运行在以下条件的机器上：
 - 能够访问你的代码库和开发环境
 - 正确配置的 API 密钥
 - 足够的计算能力
 
 但如果你想**躺在沙发上用手机**、**用 iPad 结对编程**，或者**从世界任何地方访问你的开发机器**呢？
 
-**OpenCode Remote** 提供了一个网页界面，让你可以从任何带浏览器的设备访问 OpenCode。
+**Agent Remote** 提供了一个通用的网页界面，支持任何基于命令行的 AI 编程助手，让你可以从任何带浏览器的设备访问。
+
+### 支持的 AI 助手
+
+| 助手 | 状态 | 描述 |
+|------|------|------|
+| **OpenCode** | ✅ 已支持 | 来自 opencode.ai 的开源 AI 编程助手 |
+| **GitHub Copilot CLI** | ✅ 已支持 | GitHub 官方 AI 编程助手（需要 Copilot 订阅） |
+| **Claude Code** | 🔜 计划中 | Anthropic 的 Claude 驱动的编程助手 |
+| **Gemini CLI** | 🔜 计划中 | Google 的 Gemini 驱动的编程助手 |
 
 ### 核心特性
 
