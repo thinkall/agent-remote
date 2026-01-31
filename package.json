@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "setup": "bun scripts/setup.ts",
     "start": "bun scripts/start.ts",
+    "start:copilot": "bun scripts/start-copilot.ts",
     "update:opencode": "bun scripts/update-opencode.ts",
     "update:cloudflared": "bun scripts/update-cloudflared.ts",
     "test:web-api": "bun scripts/test-web-api.ts"

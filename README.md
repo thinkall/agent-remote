@@ -4,14 +4,17 @@
 
 **[English](./README.md)** | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md)
 
-**Access OpenCode from Any Device, Anywhere**
+**Access OpenCode or GitHub Copilot CLI from Any Device, Anywhere**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenCode](https://img.shields.io/badge/OpenCode-1.1.15+-green.svg)](https://opencode.ai)
+[![Copilot CLI](https://img.shields.io/badge/Copilot%20CLI-Supported-purple.svg)](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 
 <img src="https://opencode.ai/logo.svg" alt="OpenCode Remote" width="120" />
 
 *Use your powerful workstation to run AI coding agents while accessing them from a tablet, phone, or any browser — even across the internet.*
+
+**Now with GitHub Copilot CLI support!** 🎉
 
 </div>
 
@@ -19,7 +22,7 @@
 
 ## Why OpenCode Remote?
 
-AI coding agents like OpenCode need to run on machines with:
+AI coding agents like OpenCode and GitHub Copilot CLI need to run on machines with:
 - Access to your codebase and development environment
 - Proper API keys and configurations
 - Sufficient computing power
@@ -27,6 +30,13 @@ AI coding agents like OpenCode need to run on machines with:
 But what if you want to **use your phone on the couch**, **pair program from an iPad**, or **access your dev machine from anywhere in the world**?
 
 **OpenCode Remote** solves this by providing a desktop app and web interface that works from any device with a browser.
+
+### Supported Backends
+
+| Backend | Description |
+|---------|-------------|
+| **OpenCode** | The open-source AI coding agent from opencode.ai |
+| **GitHub Copilot CLI** | GitHub's official AI coding agent (requires Copilot subscription) |
 
 ### Key Features
 
@@ -57,6 +67,8 @@ The desktop app bundles everything you need — no additional installation requi
 
 ### Option 2: Development Mode
 
+#### With OpenCode Backend
+
 ```bash
 # Clone the repository
 git clone https://github.com/realDuang/opencode-remote.git
@@ -72,6 +84,28 @@ bun run update:cloudflared
 # Start in development mode
 bun run dev
 ```
+
+#### With GitHub Copilot CLI Backend
+
+```bash
+# Clone the repository
+git clone https://github.com/realDuang/opencode-remote.git
+cd opencode-remote
+
+# Install dependencies
+bun install
+
+# Make sure GitHub Copilot CLI is installed and authenticated
+# Install: npm install -g @github/copilot
+# Or: brew install copilot-cli (macOS)
+# Or: winget install GitHub.Copilot (Windows)
+# Then authenticate: copilot (follow the login prompts)
+
+# Start with Copilot backend
+bun run start:copilot
+```
+
+> **Note:** GitHub Copilot CLI requires an active [Copilot subscription](https://github.com/features/copilot/plans). The Copilot backend uses the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) to communicate with the CLI.
 
 ---
 
@@ -131,6 +165,12 @@ The desktop app includes a device management system:
 # Start in development mode (Electron + Vite HMR)
 bun run dev
 
+# Start with OpenCode backend (web mode)
+bun run start
+
+# Start with GitHub Copilot CLI backend (web mode)
+bun run start:copilot
+
 # Build for production
 bun run build
 
@@ -161,8 +201,11 @@ opencode-remote/
 │   ├── components/        # UI components
 │   ├── lib/               # Core libraries (API client, auth, i18n)
 │   ├── stores/            # State management
-│   └── types/             # TypeScript definitions
+│   └── types/             # TypeScript definitions (incl. Copilot ACP types)
 ├── scripts/
+│   ├── start.ts           # OpenCode web mode startup
+│   ├── start-copilot.ts   # Copilot CLI web mode startup
+│   ├── copilot-bridge.ts  # ACP to REST bridge server
 │   ├── update-opencode.ts # Download OpenCode binary
 │   └── update-cloudflared.ts
 ├── electron.vite.config.ts
@@ -250,13 +293,15 @@ Contributions are welcome! Please read our contributing guidelines before submit
 ## Links
 
 - [OpenCode](https://opencode.ai) — The AI coding agent
-- [Documentation](https://opencode.ai/docs) — OpenCode documentation
+- [OpenCode Documentation](https://opencode.ai/docs) — OpenCode documentation
+- [GitHub Copilot CLI](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) — GitHub Copilot CLI documentation
+- [Agent Client Protocol](https://agentclientprotocol.com/) — Protocol used for Copilot CLI integration
 - [Issues](https://github.com/realDuang/opencode-remote/issues) — Report bugs or request features
 
 ---
 
 <div align="center">
 
-**Built with [OpenCode](https://opencode.ai), [Electron](https://electronjs.org) and [SolidJS](https://solidjs.com)**
+**Built with [OpenCode](https://opencode.ai), [GitHub Copilot](https://github.com/features/copilot), [Electron](https://electronjs.org) and [SolidJS](https://solidjs.com)**
 
 </div>
