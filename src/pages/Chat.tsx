@@ -202,15 +202,10 @@ export default function Chat() {
         logger.debug(`[Init] Project ${p.id} (${p.worktree}) isHidden: ${isHidden}`);
         return !isHidden;
       });
-      const sessionPromises = validProjects.map((p) =>
-        client.listSessionsForDirectory(p.worktree).catch((err) => {
-          logger.error(`[Init] Failed to load sessions for ${p.worktree}:`, err);
-          return [] as Session.Info[];
-        })
-      );
-      const sessionArrays = await Promise.all(sessionPromises);
-      const sessions = sessionArrays.flat();
-      logger.debug("[Init] Loaded sessions:", sessions);
+      
+      // Load all sessions at once instead of per-directory
+      const sessions = await client.listAllSessions();
+      logger.debug("[Init] Loaded all sessions:", sessions);
 
       const processedSessions = sessions.map((s) => ({
         id: s.id,
