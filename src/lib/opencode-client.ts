@@ -78,8 +78,22 @@ export class OpenCodeClient {
     return this.request<Session.Info[]>(endpoint);
   }
 
-  async listAllSessions() {
-    return this.request<Session.Info[]>("/session");
+  /**
+   * List ALL sessions without directory filtering.
+   * Does not include x-opencode-directory header.
+   */
+  async listAllSessions(): Promise<Session.Info[]> {
+    const response = await fetch(`${this.baseUrl}/session`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 
   /**
