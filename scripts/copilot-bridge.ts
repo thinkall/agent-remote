@@ -13,7 +13,7 @@ import { spawn, ChildProcess } from "child_process";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { createConnection, Socket } from "net";
 import { EventEmitter } from "events";
-import { readdir, readFile, stat } from "fs/promises";
+import { readdir, readFile, stat, rm } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 import * as ACP from "../src/types/copilot-acp";
@@ -845,7 +845,7 @@ class CopilotBridgeServer {
         this.handleGetSession(res, sessionId);
       } else if (path.match(/^\/session\/[^/]+$/) && method === "DELETE") {
         const sessionId = path.split("/")[2];
-        this.handleDeleteSession(res, sessionId);
+        await this.handleDeleteSession(res, sessionId);
       } else if (path.match(/^\/session\/[^/]+$/) && method === "PATCH") {
         const sessionId = path.split("/")[2];
         await this.handleUpdateSession(req, res, sessionId);
@@ -953,8 +953,19 @@ class CopilotBridgeServer {
     res.end(JSON.stringify(this.convertSessionToOpenCode(session)));
   }
 
-  private handleDeleteSession(res: ServerResponse, sessionId: string): void {
+  private async handleDeleteSession(res: ServerResponse, sessionId: string): Promise<void> {
+    // Remove from memory
     this.state.sessions.delete(sessionId);
+    
+    // Delete session directory from disk
+    const sessionDir = join(COPILOT_SESSION_STATE_DIR, sessionId);
+    try {
+      await rm(sessionDir, { recursive: true, force: true });
+      console.log(`[Bridge] Deleted session directory: ${sessionDir}`);
+    } catch (err) {
+      console.warn(`[Bridge] Failed to delete session directory: ${sessionDir}`, err);
+    }
+    
     res.writeHead(204);
     res.end();
   }

@@ -145,10 +145,10 @@ export const zh: LocaleDict = {
     addFailed: "添加项目失败",
     notGitRepo: "指定路径不是有效的 git 仓库",
     hideTitle: "隐藏项目",
-    hideConfirm: "隐藏项目「{name}」并删除所有会话？",
-    sessionCount: "这将删除 {count} 个会话。",
-    hideWarning: "会话历史将被永久删除。",
-    hideNote: "可通过重新添加相同路径来恢复此项目。",
+    hideConfirm: "从侧边栏隐藏项目「{name}」？",
+    sessionCount: "此项目有 {count} 个会话。",
+    hideWarning: "会话将被隐藏，但不会从磁盘删除。",
+    hideNote: "可通过重新添加相同路径来恢复此项目及其会话。",
   },
 
   // Prompt Input

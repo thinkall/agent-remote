@@ -421,10 +421,10 @@ export const en: LocaleDict = {
     addFailed: "Failed to add project",
     notGitRepo: "The specified path is not a valid git repository",
     hideTitle: "Hide Project",
-    hideConfirm: "Hide project \"{name}\" and delete all its sessions?",
-    sessionCount: "This will delete {count} session(s).",
-    hideWarning: "Session history will be permanently deleted.",
-    hideNote: "The project can be restored by adding it again with the same path.",
+    hideConfirm: "Hide project \"{name}\" from the sidebar?",
+    sessionCount: "This project has {count} session(s).",
+    hideWarning: "Sessions will be hidden but NOT deleted from disk.",
+    hideNote: "The project and its sessions can be restored by adding it again with the same path.",
   },
 
   // Prompt Input

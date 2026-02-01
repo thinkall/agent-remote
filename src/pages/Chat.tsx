@@ -360,23 +360,18 @@ export default function Chat() {
     const info = deleteProjectInfo();
     if (!info) return;
 
-    logger.debug("[HideProject] Hiding project and deleting sessions:", info.projectID);
+    logger.debug("[HideProject] Hiding project (sessions preserved):", info.projectID);
     logger.debug("[HideProject] Hidden IDs before:", ProjectStore.getHiddenIds());
 
-    const sessionsToDelete = sessionStore.list.filter(
-      (s) => s.projectID === info.projectID
-    );
+    // Check if current session belongs to this project
+    const currentSessionInProject = sessionStore.current && 
+      sessionStore.list.some(s => s.id === sessionStore.current && s.projectID === info.projectID);
     
-    const currentSessionWillBeDeleted = sessionStore.current && 
-      sessionsToDelete.some(s => s.id === sessionStore.current);
-    
-    for (const session of sessionsToDelete) {
-      await client.deleteSession(session.id);
-    }
-    
+    // Hide the project (sessions are NOT deleted, just hidden from view)
     ProjectStore.hide(info.projectID);
     logger.debug("[HideProject] Hidden IDs after:", ProjectStore.getHiddenIds());
     
+    // Remove from UI only (not from disk)
     setSessionStore("list", (list) =>
       list.filter((s) => s.projectID !== info.projectID)
     );
@@ -384,8 +379,9 @@ export default function Chat() {
       projects.filter((p) => p.id !== info.projectID)
     );
     
-    if (currentSessionWillBeDeleted) {
-      const remainingSessions = sessionStore.list;
+    // Switch to another session if current one was in this project
+    if (currentSessionInProject) {
+      const remainingSessions = sessionStore.list.filter(s => s.projectID !== info.projectID);
       if (remainingSessions.length > 0) {
         await handleSelectSession(remainingSessions[0].id);
       } else {
