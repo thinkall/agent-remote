@@ -34,6 +34,7 @@ const COPILOT_SESSION_STATE_DIR = join(homedir(), ".copilot", "session-state");
 interface SessionInfo {
   id: string;
   cwd: string;
+  projectID?: string;
   title?: string;
   createdAt: number;
   updatedAt: number;
@@ -273,6 +274,20 @@ class BridgeState {
 // Bridge Server
 // ============================================================================
 
+// Helper to generate a consistent projectID from a directory path
+function generateProjectID(directory: string): string {
+  // Normalize the path and create a simple hash-like ID
+  const normalized = directory.replace(/\\/g, "/").toLowerCase();
+  // Use a simple string hash
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `proj-${Math.abs(hash).toString(16)}`;
+}
+
 class CopilotBridgeServer {
   private acp: ACPClient;
   private state: BridgeState;
@@ -327,16 +342,18 @@ class CopilotBridgeServer {
           const sessionData = this.parseWorkspaceYaml(content);
           
           if (sessionData) {
+            const cwd = sessionData.cwd || sessionData.git_root || COPILOT_CWD;
             const session: SessionInfo = {
               id: sessionId,
-              cwd: sessionData.cwd || sessionData.git_root || COPILOT_CWD,
+              cwd,
+              projectID: generateProjectID(cwd),
               title: sessionData.repository || sessionData.branch || undefined,
               createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
               updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
               messages: [],
             };
             
-            // Load chat history from checkpoints
+            // Load chat history from events.jsonl
             await this.loadSessionHistory(session, sessionDir);
             
             this.state.sessions.set(sessionId, session);
@@ -929,6 +946,7 @@ class CopilotBridgeServer {
     const session: SessionInfo = {
       id: result.sessionId,
       cwd: directory,
+      projectID: generateProjectID(directory),
       title: title || `Session ${new Date().toISOString()}`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -1276,6 +1294,7 @@ class CopilotBridgeServer {
     return {
       id: session.id,
       directory: session.cwd,
+      projectID: session.projectID,
       title: session.title,
       time: {
         created: session.createdAt,
