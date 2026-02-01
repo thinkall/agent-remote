@@ -13,6 +13,9 @@ import { spawn, ChildProcess } from "child_process";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { createConnection, Socket } from "net";
 import { EventEmitter } from "events";
+import { readdir, readFile, stat } from "fs/promises";
+import { join } from "path";
+import { homedir } from "os";
 import * as ACP from "../src/types/copilot-acp";
 
 // ============================================================================
@@ -22,6 +25,7 @@ import * as ACP from "../src/types/copilot-acp";
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT || "4096");
 const COPILOT_ACP_PORT = parseInt(process.env.COPILOT_ACP_PORT || "4097");
 const COPILOT_CWD = process.env.COPILOT_CWD || process.cwd();
+const COPILOT_SESSION_STATE_DIR = join(homedir(), ".copilot", "session-state");
 
 // ============================================================================
 // Types
@@ -280,6 +284,9 @@ class CopilotBridgeServer {
   }
 
   async start(): Promise<void> {
+    // Load historical sessions from disk
+    await this.loadHistoricalSessions();
+
     // Start Copilot ACP server
     await this.startCopilotACP();
 
@@ -297,6 +304,79 @@ class CopilotBridgeServer {
     this.startHTTPServer();
 
     console.log(`[Bridge] Server running on port ${BRIDGE_PORT}`);
+  }
+
+  /**
+   * Load historical sessions from ~/.copilot/session-state
+   */
+  private async loadHistoricalSessions(): Promise<void> {
+    console.log(`[Bridge] Loading historical sessions from ${COPILOT_SESSION_STATE_DIR}...`);
+    
+    try {
+      const entries = await readdir(COPILOT_SESSION_STATE_DIR, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        
+        const sessionId = entry.name;
+        const workspaceFile = join(COPILOT_SESSION_STATE_DIR, sessionId, "workspace.yaml");
+        
+        try {
+          const content = await readFile(workspaceFile, "utf-8");
+          const sessionData = this.parseWorkspaceYaml(content);
+          
+          if (sessionData) {
+            const session: SessionInfo = {
+              id: sessionId,
+              cwd: sessionData.cwd || COPILOT_CWD,
+              title: sessionData.repository || sessionData.branch || undefined,
+              createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
+              updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
+              messages: [],
+            };
+            
+            this.state.sessions.set(sessionId, session);
+          }
+        } catch (err) {
+          // Skip sessions without workspace.yaml
+          continue;
+        }
+      }
+      
+      console.log(`[Bridge] Loaded ${this.state.sessions.size} historical sessions`);
+    } catch (err) {
+      console.warn("[Bridge] Could not load historical sessions:", err);
+    }
+  }
+
+  /**
+   * Simple YAML parser for workspace.yaml files
+   */
+  private parseWorkspaceYaml(content: string): Record<string, string> | null {
+    try {
+      const result: Record<string, string> = {};
+      const lines = content.split("\n");
+      
+      for (const line of lines) {
+        const colonIndex = line.indexOf(":");
+        if (colonIndex === -1) continue;
+        
+        const key = line.slice(0, colonIndex).trim();
+        let value = line.slice(colonIndex + 1).trim();
+        
+        // Remove quotes if present
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        
+        result[key] = value;
+      }
+      
+      return result;
+    } catch {
+      return null;
+    }
   }
 
   private async startCopilotACP(): Promise<void> {
