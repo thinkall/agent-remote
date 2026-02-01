@@ -612,10 +612,22 @@ export default function Chat() {
         return { type: "model" };
       }
       
+      case "rename": {
+        if (!args) {
+          alert("Usage: /rename <new name>");
+          return { type: "rename" };
+        }
+        if (sessionId) {
+          handleRenameSession(sessionId, args);
+        }
+        return { type: "rename" };
+      }
+      
       // Commands that get sent to backend
       case "compact":
       case "resume":
       case "undo":
+      case "yolo":
       case "cwd":
       case "add-dir":
       case "list-dirs":

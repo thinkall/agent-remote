@@ -32,11 +32,24 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: "Resume a previous session",
     local: false,
   },
+  {
+    name: "rename",
+    description: "Rename the current session",
+    local: true,
+    requiresArg: true,
+  },
   
   // Undo/Redo
   {
     name: "undo",
     description: "Revert the last change",
+    local: false,
+  },
+  
+  // Auto-approve mode
+  {
+    name: "yolo",
+    description: "Toggle auto-approve mode (no confirmation prompts)",
     local: false,
   },
   

@@ -9,7 +9,7 @@ export type AgentMode = "build" | "plan";
 
 // Command result for local commands
 export interface CommandResult {
-  type: "clear" | "help" | "new" | "send" | "exit" | "model";
+  type: "clear" | "help" | "new" | "send" | "exit" | "model" | "rename";
   message?: string;
 }
 

@@ -174,10 +174,12 @@ export const zh: LocaleDict = {
       "  /clear - 清除对话\n" +
       "  /compact - 压缩对话历史\n" +
       "  /new - 创建新会话\n" +
+      "  /rename <名称> - 重命名当前会话\n" +
       "  /resume - 恢复上一个会话\n" +
       "  /exit - 结束会话\n\n" +
       "更改:\n" +
-      "  /undo - 撤销上一个更改\n\n" +
+      "  /undo - 撤销上一个更改\n" +
+      "  /yolo - 切换自动批准模式\n\n" +
       "模型:\n" +
       "  /model [名称] - 显示或切换AI模型\n\n" +
       "上下文:\n" +

@@ -450,10 +450,12 @@ export const en: LocaleDict = {
       "  /clear - Clear conversation\n" +
       "  /compact - Summarize conversation\n" +
       "  /new - Create new session\n" +
+      "  /rename <name> - Rename current session\n" +
       "  /resume - Resume previous session\n" +
       "  /exit - End session\n\n" +
       "Changes:\n" +
-      "  /undo - Revert last change\n\n" +
+      "  /undo - Revert last change\n" +
+      "  /yolo - Toggle auto-approve mode\n\n" +
       "Model:\n" +
       "  /model [name] - Show or switch AI model\n\n" +
       "Context:\n" +
