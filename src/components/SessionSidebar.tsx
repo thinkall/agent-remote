@@ -82,6 +82,13 @@ export function SessionSidebar(props: SessionSidebarProps) {
             groups.set(groupKey, []);
           }
           groups.get(groupKey)!.push(session);
+        } else {
+          // Fallback: group sessions without projectID or directory under "unknown"
+          const unknownKey = "__unknown__";
+          if (!groups.has(unknownKey)) {
+            groups.set(unknownKey, []);
+          }
+          groups.get(unknownKey)!.push(session);
         }
       }
     }
