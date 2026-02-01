@@ -343,11 +343,21 @@ class CopilotBridgeServer {
           
           if (sessionData) {
             const cwd = sessionData.cwd || sessionData.git_root || COPILOT_CWD;
+            // Use summary as title if available, otherwise use a readable format
+            let title = sessionData.summary;
+            if (!title) {
+              // Fall back to date-based title
+              const createdDate = sessionData.created_at 
+                ? new Date(sessionData.created_at).toLocaleString()
+                : new Date().toLocaleString();
+              title = `Session - ${createdDate}`;
+            }
+            
             const session: SessionInfo = {
               id: sessionId,
               cwd,
               projectID: generateProjectID(cwd),
-              title: sessionData.repository || sessionData.branch || undefined,
+              title,
               createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
               updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
               messages: [],
@@ -943,11 +953,15 @@ class CopilotBridgeServer {
     // Create session via ACP
     const result = await this.acp.newSession(directory);
 
+    // Create a readable default title with date/time
+    const now = new Date();
+    const defaultTitle = `New Session - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
     const session: SessionInfo = {
       id: result.sessionId,
       cwd: directory,
       projectID: generateProjectID(directory),
-      title: title || `Session ${new Date().toISOString()}`,
+      title: title || defaultTitle,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       messages: [],
