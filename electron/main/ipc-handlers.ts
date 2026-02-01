@@ -1,9 +1,20 @@
 import { ipcMain, dialog, shell, app } from "electron";
 import os from "os";
+import path from "path";
+import fs from "fs";
 import { deviceStore } from "./services/device-store";
 import { tunnelManager } from "./services/tunnel-manager";
 import { opencodeProcess } from "./services/opencode-process";
 import { productionServer } from "./services/production-server";
+
+// Copilot CLI session info interface
+interface CopilotCliSession {
+  id: string;
+  title: string;
+  directory: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export function registerIpcHandlers(): void {
   // ===========================================================================
@@ -190,5 +201,93 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("opencode:getPort", async () => {
     return opencodeProcess.getPort();
+  });
+
+  // ===========================================================================
+  // Copilot CLI Sessions
+  // ===========================================================================
+
+  ipcMain.handle("copilotCli:listSessions", async (): Promise<CopilotCliSession[]> => {
+    const homeDir = os.homedir();
+    const sessionStatePath = path.join(homeDir, ".copilot", "session-state");
+
+    if (!fs.existsSync(sessionStatePath)) {
+      return [];
+    }
+
+    const sessions: CopilotCliSession[] = [];
+    const entries = fs.readdirSync(sessionStatePath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const sessionDir = path.join(sessionStatePath, entry.name);
+      const eventsFile = path.join(sessionDir, "events.jsonl");
+
+      let title = "(no history)";
+      let directory = "";
+      let createdAt = "";
+      let updatedAt = "";
+
+      try {
+        const stat = fs.statSync(sessionDir);
+        createdAt = stat.birthtime.toISOString();
+        updatedAt = stat.mtime.toISOString();
+      } catch {
+        // Ignore stat errors
+      }
+
+      if (fs.existsSync(eventsFile)) {
+        try {
+          const content = fs.readFileSync(eventsFile, "utf-8");
+          const lines = content.split("\n").filter((l) => l.trim());
+
+          // Get directory from session.start event
+          for (const line of lines) {
+            try {
+              const event = JSON.parse(line);
+              if (event.type === "session.start" && event.data?.context?.cwd) {
+                directory = event.data.context.cwd;
+                if (event.timestamp) {
+                  createdAt = event.timestamp;
+                }
+                break;
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+
+          // Get title from first user message
+          for (const line of lines) {
+            try {
+              const event = JSON.parse(line);
+              if (event.type === "user.message" && event.data?.content) {
+                const content = event.data.content;
+                title = content.length > 60 ? content.substring(0, 60) + "..." : content;
+                break;
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+        } catch {
+          // Ignore file read errors
+        }
+      }
+
+      sessions.push({
+        id: entry.name,
+        title,
+        directory,
+        createdAt,
+        updatedAt,
+      });
+    }
+
+    // Sort by updatedAt descending
+    sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+    return sessions;
   });
 }

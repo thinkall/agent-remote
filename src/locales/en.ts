@@ -127,6 +127,9 @@ export interface LocaleDict {
     hoursAgo: string;
     daysAgo: string;
     files: string;
+    copilotCliHistory: string;
+    copilotCliHistoryDesc: string;
+    noCliSessions: string;
   };
 
   // Project
@@ -157,6 +160,23 @@ export interface LocaleDict {
     placeholder: string;
     planPlaceholder: string;
     send: string;
+  };
+
+  // Slash Commands
+  commands: {
+    title: string;
+    navigate: string;
+    select: string;
+    dismiss: string;
+    helpText: string;
+    clear: string;
+    clearDesc: string;
+    compact: string;
+    compactDesc: string;
+    help: string;
+    helpDesc: string;
+    new: string;
+    newDesc: string;
   };
 
   // Model Selector
@@ -384,6 +404,9 @@ export const en: LocaleDict = {
     hoursAgo: "{count}h ago",
     daysAgo: "{count}d ago",
     files: "{count} files",
+    copilotCliHistory: "Copilot CLI History",
+    copilotCliHistoryDesc: "Sessions from GitHub Copilot CLI",
+    noCliSessions: "No CLI sessions found",
   },
 
   // Project
@@ -411,9 +434,26 @@ export const en: LocaleDict = {
     planMode: "Plan mode - read-only research and planning",
     plan: "Plan",
     readOnly: "Read-only",
-    placeholder: "Type a message...",
+    placeholder: "Type a message or / for commands...",
     planPlaceholder: "Describe what you want to plan or analyze...",
     send: "Send message",
+  },
+
+  // Slash Commands
+  commands: {
+    title: "Commands",
+    navigate: "navigate",
+    select: "select",
+    dismiss: "dismiss",
+    helpText: "Available commands:\n/clear - Clear conversation\n/compact - Summarize conversation\n/new - Create new session\n/help - Show this help",
+    clear: "clear",
+    clearDesc: "Clear the current conversation",
+    compact: "compact",
+    compactDesc: "Summarize and compact the conversation history",
+    help: "help",
+    helpDesc: "Show available commands",
+    new: "new",
+    newDesc: "Create a new session",
   },
 
   // Model Selector

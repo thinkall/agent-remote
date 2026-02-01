@@ -255,3 +255,20 @@ export const serverAPI = {
     return api?.server ? api.server.isRunning() : false;
   },
 };
+
+// Copilot CLI Session interface
+export interface CopilotCliSession {
+  id: string;
+  title: string;
+  directory: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Copilot CLI API
+export const copilotCliAPI = {
+  async listSessions(): Promise<CopilotCliSession[]> {
+    const api = getElectronAPI();
+    return api?.copilotCli ? api.copilotCli.listSessions() : [];
+  },
+};

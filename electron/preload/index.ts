@@ -50,6 +50,11 @@ const electronAPI = {
     getPort: () => ipcRenderer.invoke("server:getPort"),
     isRunning: () => ipcRenderer.invoke("server:isRunning"),
   },
+
+  // Copilot CLI API
+  copilotCli: {
+    listSessions: () => ipcRenderer.invoke("copilotCli:listSessions"),
+  },
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

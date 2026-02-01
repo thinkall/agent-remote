@@ -23,8 +23,9 @@ import { HideProjectModal } from "../components/HideProjectModal";
 import { AddProjectModal } from "../components/AddProjectModal";
 import { MessageV2, Permission, Session } from "../types/opencode";
 import { useI18n } from "../lib/i18n";
-import { AgentMode } from "../components/PromptInput";
+import { AgentMode, CommandResult } from "../components/PromptInput";
 import { ProjectStore } from "../lib/project-store";
+import { getCommand } from "../lib/slash-commands";
 
 // Binary search helper (consistent with opencode desktop)
 function binarySearch<T>(
@@ -547,6 +548,56 @@ export default function Chat() {
     }
   };
 
+  // Handle slash commands
+  const handleCommand = (command: string, args: string): CommandResult | null => {
+    const cmd = getCommand(command);
+    if (!cmd) return null;
+
+    switch (cmd.name) {
+      case "clear": {
+        // Clear messages for current session
+        const sessionId = sessionStore.current;
+        if (sessionId) {
+          setMessageStore("message", sessionId, []);
+          setMessageStore("part", {});
+        }
+        return { type: "clear" };
+      }
+      
+      case "help": {
+        // Show help - could display a modal or toast
+        // For now, just return that it was handled
+        alert(t().commands?.helpText || 
+          "Available commands:\n" +
+          "/clear - Clear conversation\n" +
+          "/compact - Summarize conversation\n" +
+          "/new - Create new session\n" +
+          "/help - Show this help"
+        );
+        return { type: "help" };
+      }
+      
+      case "new": {
+        // Create new session
+        handleNewSession();
+        return { type: "new" };
+      }
+      
+      case "compact": {
+        // Send compact command to backend
+        const sessionId = sessionStore.current;
+        if (sessionId) {
+          // Send as a special message that the backend will interpret
+          client.sendMessage(sessionId, "/compact", { agent: "build" });
+        }
+        return { type: "send" };
+      }
+      
+      default:
+        return null;
+    }
+  };
+
   const handleSendMessage = async (text: string, agent: AgentMode) => {
     const sessionId = sessionStore.current;
     if (!sessionId || sending()) return;
@@ -744,6 +795,7 @@ export default function Chat() {
                 <div class="max-w-3xl mx-auto w-full">
                   <PromptInput 
                     onSend={handleSendMessage} 
+                    onCommand={handleCommand}
                     disabled={sending()} 
                     currentAgent={currentAgent()}
                     onAgentChange={setCurrentAgent}

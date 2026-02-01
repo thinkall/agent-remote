@@ -128,6 +128,9 @@ export const zh: LocaleDict = {
     hoursAgo: "{count}小时前",
     daysAgo: "{count}天前",
     files: "{count} 文件",
+    copilotCliHistory: "Copilot CLI 历史",
+    copilotCliHistoryDesc: "来自 GitHub Copilot CLI 的会话",
+    noCliSessions: "未找到 CLI 会话",
   },
 
   // Project
@@ -155,9 +158,26 @@ export const zh: LocaleDict = {
     planMode: "Plan 模式 - 只读研究和规划",
     plan: "Plan",
     readOnly: "只读",
-    placeholder: "输入消息...",
+    placeholder: "输入消息或 / 使用命令...",
     planPlaceholder: "描述你想要规划或分析的内容...",
     send: "发送消息",
+  },
+
+  // Slash Commands
+  commands: {
+    title: "命令",
+    navigate: "导航",
+    select: "选择",
+    dismiss: "关闭",
+    helpText: "可用命令:\n/clear - 清除对话\n/compact - 压缩对话历史\n/new - 创建新会话\n/help - 显示帮助",
+    clear: "clear",
+    clearDesc: "清除当前对话",
+    compact: "compact",
+    compactDesc: "压缩和总结对话历史",
+    help: "help",
+    helpDesc: "显示可用命令",
+    new: "new",
+    newDesc: "创建新会话",
   },
 
   // Model Selector
