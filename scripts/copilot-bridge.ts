@@ -319,7 +319,8 @@ class CopilotBridgeServer {
         if (!entry.isDirectory()) continue;
         
         const sessionId = entry.name;
-        const workspaceFile = join(COPILOT_SESSION_STATE_DIR, sessionId, "workspace.yaml");
+        const sessionDir = join(COPILOT_SESSION_STATE_DIR, sessionId);
+        const workspaceFile = join(sessionDir, "workspace.yaml");
         
         try {
           const content = await readFile(workspaceFile, "utf-8");
@@ -328,12 +329,15 @@ class CopilotBridgeServer {
           if (sessionData) {
             const session: SessionInfo = {
               id: sessionId,
-              cwd: sessionData.cwd || COPILOT_CWD,
+              cwd: sessionData.cwd || sessionData.git_root || COPILOT_CWD,
               title: sessionData.repository || sessionData.branch || undefined,
               createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
               updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
               messages: [],
             };
+            
+            // Load chat history from checkpoints
+            await this.loadSessionHistory(session, sessionDir);
             
             this.state.sessions.set(sessionId, session);
           }
@@ -347,6 +351,134 @@ class CopilotBridgeServer {
     } catch (err) {
       console.warn("[Bridge] Could not load historical sessions:", err);
     }
+  }
+
+  /**
+   * Load chat history from checkpoint files
+   */
+  private async loadSessionHistory(session: SessionInfo, sessionDir: string): Promise<void> {
+    const checkpointsDir = join(sessionDir, "checkpoints");
+    
+    try {
+      const files = await readdir(checkpointsDir);
+      
+      // Sort checkpoint files by number (001-xxx.md, 002-xxx.md, etc.)
+      const checkpointFiles = files
+        .filter(f => f.endsWith(".md") && f !== "index.md")
+        .sort((a, b) => {
+          const numA = parseInt(a.split("-")[0]) || 0;
+          const numB = parseInt(b.split("-")[0]) || 0;
+          return numA - numB;
+        });
+      
+      for (const file of checkpointFiles) {
+        try {
+          const content = await readFile(join(checkpointsDir, file), "utf-8");
+          const messages = this.parseCheckpointToMessages(session.id, content, file);
+          session.messages.push(...messages);
+        } catch {
+          // Skip unreadable checkpoint files
+          continue;
+        }
+      }
+    } catch {
+      // No checkpoints directory - that's fine
+    }
+  }
+
+  /**
+   * Parse checkpoint markdown into message format
+   */
+  private parseCheckpointToMessages(sessionId: string, content: string, filename: string): MessageInfo[] {
+    const messages: MessageInfo[] = [];
+    const baseTime = Date.now() - (messages.length * 1000);
+    
+    // Extract title from filename (e.g., "001-litellm-integration.md" -> "litellm integration")
+    const titleMatch = filename.match(/^\d+-(.+)\.md$/);
+    const checkpointTitle = titleMatch ? titleMatch[1].replace(/-/g, " ") : filename;
+    
+    // Parse the <history> section which contains the conversation
+    const historyMatch = content.match(/<history>([\s\S]*?)<\/history>/);
+    
+    if (historyMatch) {
+      const historyContent = historyMatch[1].trim();
+      const historyItems = historyContent.split(/\n(?=\d+\.\s)/);
+      
+      for (let i = 0; i < historyItems.length; i++) {
+        const item = historyItems[i].trim();
+        if (!item) continue;
+        
+        // Each history item starts with "N. User asked..." or similar
+        const itemMatch = item.match(/^\d+\.\s*(.+)/s);
+        if (!itemMatch) continue;
+        
+        const itemContent = itemMatch[1].trim();
+        
+        // Split into user request (first line) and assistant response (rest)
+        const lines = itemContent.split("\n");
+        const userRequest = lines[0].replace(/^User\s+(asked|requested|wanted)\s+(to\s+)?/i, "").trim();
+        const assistantResponse = lines.slice(1).map(l => l.replace(/^\s*-\s*/, "• ")).join("\n").trim();
+        
+        // Create user message
+        const userMsgId = `hist-${sessionId}-${i * 2}`;
+        const userMsg: MessageInfo = {
+          id: userMsgId,
+          sessionID: sessionId,
+          role: "user",
+          time: { created: baseTime + (i * 2000) },
+          parts: [{
+            id: `part-${userMsgId}`,
+            messageID: userMsgId,
+            sessionID: sessionId,
+            type: "text",
+            text: userRequest,
+          }],
+        };
+        messages.push(userMsg);
+        
+        // Create assistant message if there's a response
+        if (assistantResponse) {
+          const assistantMsgId = `hist-${sessionId}-${i * 2 + 1}`;
+          const assistantMsg: MessageInfo = {
+            id: assistantMsgId,
+            sessionID: sessionId,
+            role: "assistant",
+            time: { created: baseTime + (i * 2000 + 1000), completed: baseTime + (i * 2000 + 1000) },
+            parts: [{
+              id: `part-${assistantMsgId}`,
+              messageID: assistantMsgId,
+              sessionID: sessionId,
+              type: "text",
+              text: assistantResponse,
+            }],
+          };
+          messages.push(assistantMsg);
+        }
+      }
+    }
+    
+    // If no history section, create a summary message from overview
+    if (messages.length === 0) {
+      const overviewMatch = content.match(/<overview>([\s\S]*?)<\/overview>/);
+      if (overviewMatch) {
+        const msgId = `hist-${sessionId}-summary`;
+        messages.push({
+          id: msgId,
+          sessionID: sessionId,
+          role: "assistant",
+          time: { created: baseTime, completed: baseTime },
+          parts: [{
+            id: `part-${msgId}`,
+            messageID: msgId,
+            sessionID: sessionId,
+            type: "text",
+            text: `**Session Summary: ${checkpointTitle}**\n\n${overviewMatch[1].trim()}`,
+          }],
+        });
+      }
+    }
+    
+    return messages;
   }
 
   /**
