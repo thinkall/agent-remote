@@ -187,10 +187,19 @@ export default function Chat() {
       const projects = await client.listProjects();
       logger.debug("[Init] Loaded projects:", projects);
 
-      // Auto-hide global and invalid projects
+      // Auto-hide global and invalid projects, but respect user-added projects
+      const userAddedProjects = ProjectStore.getAll();
+      const userAddedIds = new Set(userAddedProjects.map(p => p.id));
+      
       for (const p of projects) {
         if (!p.worktree || p.worktree === "/") {
-          ProjectStore.hide(p.id);
+          // Only hide if not explicitly added by user
+          if (!userAddedIds.has(p.id)) {
+            ProjectStore.hide(p.id);
+          }
+        } else if (userAddedIds.has(p.id)) {
+          // Ensure user-added projects are unhidden
+          ProjectStore.unhide(p.id);
         }
       }
 
