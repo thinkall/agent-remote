@@ -354,131 +354,147 @@ class CopilotBridgeServer {
   }
 
   /**
-   * Load chat history from checkpoint files
+   * Load chat history from events.jsonl
    */
   private async loadSessionHistory(session: SessionInfo, sessionDir: string): Promise<void> {
-    const checkpointsDir = join(sessionDir, "checkpoints");
+    const eventsFile = join(sessionDir, "events.jsonl");
     
     try {
-      const files = await readdir(checkpointsDir);
+      const content = await readFile(eventsFile, "utf-8");
+      const lines = content.trim().split("\n");
       
-      // Sort checkpoint files by number (001-xxx.md, 002-xxx.md, etc.)
-      const checkpointFiles = files
-        .filter(f => f.endsWith(".md") && f !== "index.md")
-        .sort((a, b) => {
-          const numA = parseInt(a.split("-")[0]) || 0;
-          const numB = parseInt(b.split("-")[0]) || 0;
-          return numA - numB;
-        });
+      let currentUserMessage: MessageInfo | null = null;
+      let currentAssistantMessage: MessageInfo | null = null;
       
-      for (const file of checkpointFiles) {
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        
         try {
-          const content = await readFile(join(checkpointsDir, file), "utf-8");
-          const messages = this.parseCheckpointToMessages(session.id, content, file);
-          session.messages.push(...messages);
+          const event = JSON.parse(line);
+          const timestamp = new Date(event.timestamp).getTime();
+          
+          switch (event.type) {
+            case "user.message": {
+              // Create user message
+              const msgId = event.id || this.state.generateMessageId();
+              const userContent = event.data?.content || event.data?.transformedContent || "";
+              
+              currentUserMessage = {
+                id: msgId,
+                sessionID: session.id,
+                role: "user",
+                time: { created: timestamp },
+                parts: [{
+                  id: `part-${msgId}`,
+                  messageID: msgId,
+                  sessionID: session.id,
+                  type: "text",
+                  text: userContent,
+                }],
+              };
+              session.messages.push(currentUserMessage);
+              break;
+            }
+            
+            case "assistant.turn_start": {
+              // Start new assistant message
+              const msgId = event.data?.turnId ? `turn-${event.data.turnId}-${event.id}` : event.id;
+              currentAssistantMessage = {
+                id: msgId,
+                sessionID: session.id,
+                role: "assistant",
+                time: { created: timestamp },
+                parts: [],
+              };
+              session.messages.push(currentAssistantMessage);
+              break;
+            }
+            
+            case "assistant.message": {
+              if (!currentAssistantMessage) break;
+              
+              // Add text content if present
+              if (event.data?.content) {
+                const partId = `part-text-${event.id}`;
+                currentAssistantMessage.parts.push({
+                  id: partId,
+                  messageID: currentAssistantMessage.id,
+                  sessionID: session.id,
+                  type: "text",
+                  text: event.data.content,
+                });
+              }
+              
+              // Add reasoning if present
+              if (event.data?.reasoningText) {
+                const partId = `part-thinking-${event.id}`;
+                currentAssistantMessage.parts.push({
+                  id: partId,
+                  messageID: currentAssistantMessage.id,
+                  sessionID: session.id,
+                  type: "thinking",
+                  thinking: event.data.reasoningText,
+                });
+              }
+              
+              // Add tool requests
+              if (event.data?.toolRequests) {
+                for (const tool of event.data.toolRequests) {
+                  const partId = `part-tool-${tool.toolCallId}`;
+                  currentAssistantMessage.parts.push({
+                    id: partId,
+                    messageID: currentAssistantMessage.id,
+                    sessionID: session.id,
+                    type: "tool-invocation",
+                    toolInvocation: {
+                      toolCallId: tool.toolCallId,
+                      toolName: tool.name,
+                      args: tool.arguments,
+                    },
+                    state: { status: "completed" },
+                  });
+                }
+              }
+              
+              // Update model info
+              if (event.data?.modelId) {
+                currentAssistantMessage.modelID = event.data.modelId;
+              }
+              break;
+            }
+            
+            case "tool.execution_complete": {
+              // Find the tool part and update with result
+              if (currentAssistantMessage && event.data?.toolCallId) {
+                const toolPart = currentAssistantMessage.parts.find(
+                  (p: any) => p.toolInvocation?.toolCallId === event.data.toolCallId
+                );
+                if (toolPart) {
+                  (toolPart as any).state = {
+                    status: "completed",
+                    output: event.data.result,
+                  };
+                }
+              }
+              break;
+            }
+            
+            case "assistant.turn_end": {
+              if (currentAssistantMessage) {
+                currentAssistantMessage.time.completed = timestamp;
+              }
+              currentAssistantMessage = null;
+              break;
+            }
+          }
         } catch {
-          // Skip unreadable checkpoint files
+          // Skip malformed lines
           continue;
         }
       }
     } catch {
-      // No checkpoints directory - that's fine
+      // No events.jsonl - that's fine for new sessions
     }
-  }
-
-  /**
-   * Parse checkpoint markdown into message format
-   */
-  private parseCheckpointToMessages(sessionId: string, content: string, filename: string): MessageInfo[] {
-    const messages: MessageInfo[] = [];
-    const baseTime = Date.now() - (messages.length * 1000);
-    
-    // Extract title from filename (e.g., "001-litellm-integration.md" -> "litellm integration")
-    const titleMatch = filename.match(/^\d+-(.+)\.md$/);
-    const checkpointTitle = titleMatch ? titleMatch[1].replace(/-/g, " ") : filename;
-    
-    // Parse the <history> section which contains the conversation
-    const historyMatch = content.match(/<history>([\s\S]*?)<\/history>/);
-    
-    if (historyMatch) {
-      const historyContent = historyMatch[1].trim();
-      const historyItems = historyContent.split(/\n(?=\d+\.\s)/);
-      
-      for (let i = 0; i < historyItems.length; i++) {
-        const item = historyItems[i].trim();
-        if (!item) continue;
-        
-        // Each history item starts with "N. User asked..." or similar
-        const itemMatch = item.match(/^\d+\.\s*(.+)/s);
-        if (!itemMatch) continue;
-        
-        const itemContent = itemMatch[1].trim();
-        
-        // Split into user request (first line) and assistant response (rest)
-        const lines = itemContent.split("\n");
-        const userRequest = lines[0].replace(/^User\s+(asked|requested|wanted)\s+(to\s+)?/i, "").trim();
-        const assistantResponse = lines.slice(1).map(l => l.replace(/^\s*-\s*/, "• ")).join("\n").trim();
-        
-        // Create user message
-        const userMsgId = `hist-${sessionId}-${i * 2}`;
-        const userMsg: MessageInfo = {
-          id: userMsgId,
-          sessionID: sessionId,
-          role: "user",
-          time: { created: baseTime + (i * 2000) },
-          parts: [{
-            id: `part-${userMsgId}`,
-            messageID: userMsgId,
-            sessionID: sessionId,
-            type: "text",
-            text: userRequest,
-          }],
-        };
-        messages.push(userMsg);
-        
-        // Create assistant message if there's a response
-        if (assistantResponse) {
-          const assistantMsgId = `hist-${sessionId}-${i * 2 + 1}`;
-          const assistantMsg: MessageInfo = {
-            id: assistantMsgId,
-            sessionID: sessionId,
-            role: "assistant",
-            time: { created: baseTime + (i * 2000 + 1000), completed: baseTime + (i * 2000 + 1000) },
-            parts: [{
-              id: `part-${assistantMsgId}`,
-              messageID: assistantMsgId,
-              sessionID: sessionId,
-              type: "text",
-              text: assistantResponse,
-            }],
-          };
-          messages.push(assistantMsg);
-        }
-      }
-    }
-    
-    // If no history section, create a summary message from overview
-    if (messages.length === 0) {
-      const overviewMatch = content.match(/<overview>([\s\S]*?)<\/overview>/);
-      if (overviewMatch) {
-        const msgId = `hist-${sessionId}-summary`;
-        messages.push({
-          id: msgId,
-          sessionID: sessionId,
-          role: "assistant",
-          time: { created: baseTime, completed: baseTime },
-          parts: [{
-            id: `part-${msgId}`,
-            messageID: msgId,
-            sessionID: sessionId,
-            type: "text",
-            text: `**Session Summary: ${checkpointTitle}**\n\n${overviewMatch[1].trim()}`,
-          }],
-        });
-      }
-    }
-    
-    return messages;
   }
 
   /**
