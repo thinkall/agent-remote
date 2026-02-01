@@ -600,15 +600,16 @@ class CopilotBridgeServer {
     const path = url.pathname;
     const method = req.method || "GET";
 
-    // Get directory from header
-    const directory = req.headers["x-opencode-directory"] as string || COPILOT_CWD;
+    // Get directory from header - null means no filtering (list all)
+    const directoryHeader = req.headers["x-opencode-directory"] as string | undefined;
+    const directory = directoryHeader || COPILOT_CWD;
 
     try {
       // Route requests
       if (path === "/global/event" && method === "GET") {
         this.handleSSE(req, res);
       } else if (path === "/session" && method === "GET") {
-        this.handleListSessions(res, directory);
+        this.handleListSessions(res, directoryHeader ? directory : null);
       } else if (path === "/session" && method === "POST") {
         await this.handleCreateSession(req, res, directory);
       } else if (path.match(/^\/session\/[^/]+$/) && method === "GET") {
@@ -672,13 +673,18 @@ class CopilotBridgeServer {
     res.write("data: {}\n\n");
   }
 
-  private handleListSessions(res: ServerResponse, directory: string): void {
-    const sessions = Array.from(this.state.sessions.values())
-      .filter((s) => s.cwd === directory)
-      .map((s) => this.convertSessionToOpenCode(s));
+  private handleListSessions(res: ServerResponse, directory: string | null): void {
+    let sessions = Array.from(this.state.sessions.values());
+    
+    // Only filter by directory if one was explicitly provided
+    if (directory !== null) {
+      sessions = sessions.filter((s) => s.cwd === directory);
+    }
+    
+    const result = sessions.map((s) => this.convertSessionToOpenCode(s));
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(sessions));
+    res.end(JSON.stringify(result));
   }
 
   private async handleCreateSession(
