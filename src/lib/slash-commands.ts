@@ -6,9 +6,12 @@ export interface SlashCommand {
   aliases?: string[];
   // If true, command is handled locally without sending to backend
   local?: boolean;
+  // If true, command requires an argument
+  requiresArg?: boolean;
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
+  // Session management
   {
     name: "clear",
     description: "Clear the current conversation",
@@ -20,13 +23,73 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     local: false,
   },
   {
+    name: "new",
+    description: "Create a new session",
+    local: true,
+  },
+  {
+    name: "resume",
+    description: "Resume a previous session",
+    local: false,
+  },
+  
+  // Undo/Redo
+  {
+    name: "undo",
+    description: "Revert the last change",
+    local: false,
+  },
+  
+  // Model management
+  {
+    name: "model",
+    description: "Show or switch AI model",
+    local: true,
+    requiresArg: false,
+  },
+  
+  // Directory/Context management
+  {
+    name: "cwd",
+    description: "Show or change working directory",
+    local: false,
+  },
+  {
+    name: "add-dir",
+    description: "Grant access to an additional directory",
+    local: false,
+    requiresArg: true,
+  },
+  {
+    name: "list-dirs",
+    description: "List all accessible directories",
+    local: false,
+  },
+  
+  // Session info
+  {
+    name: "usage",
+    description: "Display session statistics and token usage",
+    local: false,
+  },
+  {
+    name: "session",
+    description: "Show detailed session metrics",
+    local: false,
+  },
+  
+  // Help
+  {
     name: "help",
     description: "Show available commands",
     local: true,
   },
+  
+  // Exit
   {
-    name: "new",
-    description: "Create a new session",
+    name: "exit",
+    description: "End the current session",
+    aliases: ["quit"],
     local: true,
   },
 ];

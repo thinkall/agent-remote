@@ -553,10 +553,11 @@ export default function Chat() {
     const cmd = getCommand(command);
     if (!cmd) return null;
 
+    const sessionId = sessionStore.current;
+
     switch (cmd.name) {
       case "clear": {
         // Clear messages for current session
-        const sessionId = sessionStore.current;
         if (sessionId) {
           setMessageStore("message", sessionId, []);
           setMessageStore("part", {});
@@ -565,15 +566,23 @@ export default function Chat() {
       }
       
       case "help": {
-        // Show help - could display a modal or toast
-        // For now, just return that it was handled
-        alert(t().commands?.helpText || 
+        // Show help with all commands
+        const helpText = t().commands?.helpText || 
           "Available commands:\n" +
           "/clear - Clear conversation\n" +
           "/compact - Summarize conversation\n" +
           "/new - Create new session\n" +
-          "/help - Show this help"
-        );
+          "/resume - Resume previous session\n" +
+          "/undo - Revert last change\n" +
+          "/model [name] - Show or switch AI model\n" +
+          "/cwd [path] - Show or change working directory\n" +
+          "/add-dir <path> - Add directory access\n" +
+          "/list-dirs - List accessible directories\n" +
+          "/usage - Show session statistics\n" +
+          "/session - Show session metrics\n" +
+          "/exit - End session\n" +
+          "/help - Show this help";
+        alert(helpText);
         return { type: "help" };
       }
       
@@ -583,18 +592,49 @@ export default function Chat() {
         return { type: "new" };
       }
       
-      case "compact": {
-        // Send compact command to backend
-        const sessionId = sessionStore.current;
+      case "exit":
+      case "quit": {
+        // Navigate back to entry/home
+        navigate("/");
+        return { type: "exit" };
+      }
+      
+      case "model": {
+        if (args) {
+          // Try to switch model - this would need model lookup
+          // For now, just show current model
+          const model = currentSessionModel();
+          alert(`Current model: ${model?.providerID}/${model?.modelID}\nTo change model, use the model selector in the UI.`);
+        } else {
+          const model = currentSessionModel();
+          alert(`Current model: ${model?.providerID}/${model?.modelID}`);
+        }
+        return { type: "model" };
+      }
+      
+      // Commands that get sent to backend
+      case "compact":
+      case "resume":
+      case "undo":
+      case "cwd":
+      case "add-dir":
+      case "list-dirs":
+      case "usage":
+      case "session": {
         if (sessionId) {
-          // Send as a special message that the backend will interpret
-          client.sendMessage(sessionId, "/compact", { agent: "build" });
+          const fullCommand = args ? `/${cmd.name} ${args}` : `/${cmd.name}`;
+          client.sendMessage(sessionId, fullCommand, { agent: "build" });
         }
         return { type: "send" };
       }
       
       default:
-        return null;
+        // Unknown command - send to backend anyway, it might handle it
+        if (sessionId) {
+          const fullCommand = args ? `/${command} ${args}` : `/${command}`;
+          client.sendMessage(sessionId, fullCommand, { agent: "build" });
+        }
+        return { type: "send" };
     }
   };
 

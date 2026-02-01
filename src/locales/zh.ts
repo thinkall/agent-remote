@@ -169,7 +169,25 @@ export const zh: LocaleDict = {
     navigate: "导航",
     select: "选择",
     dismiss: "关闭",
-    helpText: "可用命令:\n/clear - 清除对话\n/compact - 压缩对话历史\n/new - 创建新会话\n/help - 显示帮助",
+    helpText: "可用命令:\n\n" +
+      "会话:\n" +
+      "  /clear - 清除对话\n" +
+      "  /compact - 压缩对话历史\n" +
+      "  /new - 创建新会话\n" +
+      "  /resume - 恢复上一个会话\n" +
+      "  /exit - 结束会话\n\n" +
+      "更改:\n" +
+      "  /undo - 撤销上一个更改\n\n" +
+      "模型:\n" +
+      "  /model [名称] - 显示或切换AI模型\n\n" +
+      "上下文:\n" +
+      "  /cwd [路径] - 显示或更改工作目录\n" +
+      "  /add-dir <路径> - 添加目录访问权限\n" +
+      "  /list-dirs - 列出可访问的目录\n\n" +
+      "信息:\n" +
+      "  /usage - 显示会话统计\n" +
+      "  /session - 显示会话指标\n" +
+      "  /help - 显示帮助",
     clear: "clear",
     clearDesc: "清除当前对话",
     compact: "compact",

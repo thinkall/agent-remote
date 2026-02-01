@@ -445,7 +445,25 @@ export const en: LocaleDict = {
     navigate: "navigate",
     select: "select",
     dismiss: "dismiss",
-    helpText: "Available commands:\n/clear - Clear conversation\n/compact - Summarize conversation\n/new - Create new session\n/help - Show this help",
+    helpText: "Available commands:\n\n" +
+      "Session:\n" +
+      "  /clear - Clear conversation\n" +
+      "  /compact - Summarize conversation\n" +
+      "  /new - Create new session\n" +
+      "  /resume - Resume previous session\n" +
+      "  /exit - End session\n\n" +
+      "Changes:\n" +
+      "  /undo - Revert last change\n\n" +
+      "Model:\n" +
+      "  /model [name] - Show or switch AI model\n\n" +
+      "Context:\n" +
+      "  /cwd [path] - Show or change working directory\n" +
+      "  /add-dir <path> - Add directory access\n" +
+      "  /list-dirs - List accessible directories\n\n" +
+      "Info:\n" +
+      "  /usage - Show session statistics\n" +
+      "  /session - Show session metrics\n" +
+      "  /help - Show this help",
     clear: "clear",
     clearDesc: "Clear the current conversation",
     compact: "compact",
