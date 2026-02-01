@@ -3,6 +3,7 @@ import { SessionInfo, sessionStore, setSessionStore, getProjectName } from "../s
 import { useI18n, formatMessage } from "../lib/i18n";
 import { Project } from "../types/opencode";
 import { ProjectStore } from "../lib/project-store";
+import { CopilotCliHistory } from "./CopilotCliHistory";
 
 interface SessionSidebarProps {
   sessions: SessionInfo[];
@@ -52,23 +53,44 @@ export function SessionSidebar(props: SessionSidebarProps) {
 
     const rootSessions = props.sessions.filter((s) => !s.parentID);
 
+    // Helper to normalize paths for comparison
+    const normalizePath = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
     for (const session of rootSessions) {
       const projectID = session.projectID || "";
       
-      if (groups.has(projectID)) {
+      if (projectID && groups.has(projectID)) {
         groups.get(projectID)!.push(session);
-      } else if (projectID) {
+      } else {
+        // Try to match by directory if projectID not in groups
+        const normalizedSessionDir = session.directory ? normalizePath(session.directory) : "";
         const matchingProject = filteredProjects.find(
-          (p) => session.directory && p.worktree === session.directory
+          (p) => normalizedSessionDir && normalizePath(p.worktree) === normalizedSessionDir
         );
         if (matchingProject) {
           groups.get(matchingProject.id)!.push(session);
+        } else if (projectID) {
+          // Create a new group for sessions with unknown projectID
+          if (!groups.has(projectID)) {
+            groups.set(projectID, []);
+          }
+          groups.get(projectID)!.push(session);
+        } else if (session.directory) {
+          // Create a new group for sessions without projectID but with directory
+          const groupKey = normalizedSessionDir;
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, []);
+          }
+          groups.get(groupKey)!.push(session);
         }
       }
     }
 
     const result: ProjectGroup[] = [];
     for (const [projectID, sessions] of groups) {
+      // Skip empty groups
+      if (sessions.length === 0) continue;
+      
       const sortedSessions = sessions.slice().sort((a, b) => {
         const aTime = new Date(a.updatedAt).getTime();
         const bTime = new Date(b.updatedAt).getTime();
@@ -76,9 +98,18 @@ export function SessionSidebar(props: SessionSidebarProps) {
       });
 
       const project = filteredProjects.find((p) => p.id === projectID) || null;
-      if (!project) continue;
       
-      const name = getProjectName(project);
+      // Derive name from project or session directory
+      let name: string;
+      if (project) {
+        name = getProjectName(project);
+      } else {
+        // Fallback: extract name from session directory
+        const firstSession = sortedSessions[0];
+        const dir = firstSession?.directory || "";
+        const parts = dir.split(/[/\\]/).filter(Boolean);
+        name = parts[parts.length - 1] || "Unknown";
+      }
 
       result.push({
         projectID,
@@ -462,6 +493,9 @@ export function SessionSidebar(props: SessionSidebarProps) {
             }}
           </For>
         </Show>
+
+        {/* Copilot CLI History Section */}
+        <CopilotCliHistory />
       </div>
 
       <div class="px-2 py-2 border-t border-gray-200 dark:border-zinc-800">
