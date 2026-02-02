@@ -26,6 +26,40 @@ const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT || "4096");
 const COPILOT_ACP_PORT = parseInt(process.env.COPILOT_ACP_PORT || "4097");
 const COPILOT_CWD = process.env.COPILOT_CWD || process.cwd();
 const COPILOT_SESSION_STATE_DIR = join(homedir(), ".copilot", "session-state");
+const COPILOT_CONFIG_DIR = join(homedir(), ".copilot");
+const COPILOT_CONFIG_FILE = join(COPILOT_CONFIG_DIR, "config.json");
+const COPILOT_MCP_CONFIG_FILE = join(COPILOT_CONFIG_DIR, "mcp-config.json");
+
+// ============================================================================
+// User Configuration Types
+// ============================================================================
+
+interface CopilotConfig {
+  model?: string;
+  trusted_folders?: string[];
+  allowed_urls?: string[];
+  render_markdown?: boolean;
+  theme?: string;
+}
+
+interface McpServerConfig {
+  type?: "stdio" | "http" | "sse";
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
+  tools?: string[];
+}
+
+interface McpConfig {
+  mcpServers?: Record<string, McpServerConfig>;
+}
+
+// Global loaded configs
+let userConfig: CopilotConfig = {};
+let mcpConfig: McpConfig = {};
+let loadedMcpServers: ACP.McpServer[] = [];
 
 // ============================================================================
 // Types
@@ -90,6 +124,7 @@ class ACPClient extends EventEmitter {
     reject: (error: Error) => void;
   }> = new Map();
   private initialized: boolean = false;
+  private agentCapabilities: ACP.AgentCapabilities = {};
 
   constructor(private port: number) {
     super();
@@ -196,7 +231,7 @@ class ACPClient extends EventEmitter {
 
   async initialize(): Promise<ACP.InitializeResult> {
     if (this.initialized) {
-      return { protocolVersion: ACP.PROTOCOL_VERSION, agentCapabilities: {} };
+      return { protocolVersion: ACP.PROTOCOL_VERSION, agentCapabilities: this.agentCapabilities };
     }
 
     const result = await this.sendRequest<ACP.InitializeResult>(
@@ -207,13 +242,25 @@ class ACPClient extends EventEmitter {
       } as ACP.InitializeParams
     );
     this.initialized = true;
+    this.agentCapabilities = result.agentCapabilities || {};
     return result;
   }
 
-  async newSession(cwd: string): Promise<ACP.NewSessionResult> {
+  supportsLoadSession(): boolean {
+    return this.agentCapabilities.loadSession === true;
+  }
+
+  async newSession(cwd: string, mcpServers?: ACP.McpServer[]): Promise<ACP.NewSessionResult> {
     return this.sendRequest<ACP.NewSessionResult>(
       ACP.ACP_METHODS.SESSION_NEW,
-      { cwd, mcpServers: [] } as ACP.NewSessionParams
+      { cwd, mcpServers: mcpServers || [] } as ACP.NewSessionParams
+    );
+  }
+
+  async loadSession(sessionId: string, cwd: string, mcpServers?: ACP.McpServer[]): Promise<void> {
+    return this.sendRequest<void>(
+      ACP.ACP_METHODS.SESSION_LOAD,
+      { sessionId, cwd, mcpServers: mcpServers || [] } as ACP.LoadSessionParams
     );
   }
 
@@ -256,6 +303,7 @@ class BridgeState {
   partIdCounter: number = 0;
   permissionIdCounter: number = 0;
   toolCallToPermission: Map<string, string> = new Map(); // toolCallId -> permissionId
+  loadedAcpSessions: Set<string> = new Set(); // Sessions that have been loaded in ACP
 
   generateMessageId(): string {
     return `msg-${Date.now()}-${++this.messageIdCounter}`;
@@ -299,6 +347,9 @@ class CopilotBridgeServer {
   }
 
   async start(): Promise<void> {
+    // Load user configuration files
+    await this.loadConfigs();
+
     // Load historical sessions from disk
     await this.loadHistoricalSessions();
 
@@ -310,7 +361,8 @@ class CopilotBridgeServer {
 
     // Connect to ACP
     await this.acp.connect();
-    await this.acp.initialize();
+    const initResult = await this.acp.initialize();
+    console.log(`[Bridge] ACP initialized, capabilities: loadSession=${initResult.agentCapabilities?.loadSession || false}, setMode=${initResult.agentCapabilities?.setMode || false}`);
 
     // Set up ACP event handlers
     this.setupACPHandlers();
@@ -319,6 +371,40 @@ class CopilotBridgeServer {
     this.startHTTPServer();
 
     console.log(`[Bridge] Server running on port ${BRIDGE_PORT}`);
+  }
+
+  /**
+   * Load user configuration from ~/.copilot/config.json and ~/.copilot/mcp-config.json
+   */
+  private async loadConfigs(): Promise<void> {
+    // Load user config
+    try {
+      const configContent = await readFile(COPILOT_CONFIG_FILE, "utf-8");
+      userConfig = JSON.parse(configContent);
+      console.log(`[Bridge] Loaded user config: model=${userConfig.model}, trusted_folders=${userConfig.trusted_folders?.length || 0}`);
+    } catch (err) {
+      console.log("[Bridge] No user config found, using defaults");
+    }
+
+    // Load MCP config
+    try {
+      const mcpContent = await readFile(COPILOT_MCP_CONFIG_FILE, "utf-8");
+      mcpConfig = JSON.parse(mcpContent);
+      
+      // Convert MCP servers to ACP format
+      if (mcpConfig.mcpServers) {
+        // Note: We don't pass MCP servers via ACP session/new because 
+        // Copilot CLI reads them directly from ~/.copilot/mcp-config.json.
+        // Passing them via ACP can cause "Internal error" if the server fails to start.
+        // We just log what's configured for debugging purposes.
+        const serverNames = Object.keys(mcpConfig.mcpServers);
+        console.log(`[Bridge] MCP servers configured in mcp-config.json: ${serverNames.join(", ")}`);
+        console.log(`[Bridge] Copilot CLI will load these servers directly from config file`);
+        loadedMcpServers = []; // Let Copilot load them directly
+      }
+    } catch (err) {
+      console.log("[Bridge] No MCP config found");
+    }
   }
 
   /**
@@ -558,9 +644,43 @@ class CopilotBridgeServer {
     console.log("[Bridge] Starting Copilot ACP server...");
 
     const isWindows = process.platform === "win32";
+    
+    // Build CLI arguments
+    const args = [
+      "--acp",
+      "--port", COPILOT_ACP_PORT.toString(),
+      "--allow-all",
+      // Enable all GitHub MCP tools for full CLI parity
+      "--enable-all-github-mcp-tools",
+    ];
+
+    // Add model from config if available
+    if (userConfig.model) {
+      args.push("--model", userConfig.model);
+      console.log(`[Bridge] Using model: ${userConfig.model}`);
+    }
+
+    // Add trusted folders as additional directories
+    if (userConfig.trusted_folders && userConfig.trusted_folders.length > 0) {
+      for (const folder of userConfig.trusted_folders) {
+        args.push("--add-dir", folder);
+      }
+      console.log(`[Bridge] Added ${userConfig.trusted_folders.length} trusted folders`);
+    }
+
+    // Add allowed URLs
+    if (userConfig.allowed_urls && userConfig.allowed_urls.length > 0) {
+      for (const url of userConfig.allowed_urls) {
+        args.push("--allow-url", url);
+      }
+      console.log(`[Bridge] Added ${userConfig.allowed_urls.length} allowed URLs`);
+    }
+
+    console.log(`[Bridge] Copilot args: ${args.join(" ")}`);
+
     this.copilotProcess = spawn(
       "copilot",
-      ["--acp", "--port", COPILOT_ACP_PORT.toString(), "--allow-all"],
+      args,
       {
         stdio: ["pipe", "pipe", "inherit"],
         shell: isWindows,
@@ -725,8 +845,8 @@ class CopilotBridgeServer {
         (toolPart as any).state = {
           status: this.mapToolStatus(update.status),
           input: (toolPart as any).state?.input || {},
-          ...(update.content?.[0]?.content.type === "text" && {
-            output: (update.content[0].content as ACP.TextContent).text,
+          ...(update.content?.[0]?.type === "text" && {
+            output: (update.content[0] as ACP.TextContent).text,
           }),
           time: {
             start: startTime,
@@ -950,8 +1070,21 @@ class CopilotBridgeServer {
     const body = await this.readBody(req);
     const { title } = body as { title?: string };
 
-    // Create session via ACP
-    const result = await this.acp.newSession(directory);
+    // Create session via ACP with loaded MCP servers
+    console.log(`[Bridge] Creating session in directory: ${directory} with ${loadedMcpServers.length} MCP servers`);
+    if (loadedMcpServers.length > 0) {
+      console.log(`[Bridge] MCP servers: ${JSON.stringify(loadedMcpServers)}`);
+    }
+    
+    let result: ACP.NewSessionResult;
+    try {
+      result = await this.acp.newSession(directory, loadedMcpServers);
+    } catch (err) {
+      console.error(`[Bridge] Failed to create session:`, err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to create session" }));
+      return;
+    }
 
     // Create a readable default title with date/time
     const now = new Date();
@@ -968,6 +1101,7 @@ class CopilotBridgeServer {
     };
 
     this.state.sessions.set(session.id, session);
+    this.state.loadedAcpSessions.add(session.id); // Mark as loaded in ACP
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(this.convertSessionToOpenCode(session)));
@@ -1049,6 +1183,51 @@ class CopilotBridgeServer {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Session not found" }));
       return;
+    }
+
+    // Load session in ACP if it's a historical session that hasn't been loaded yet
+    if (!this.state.loadedAcpSessions.has(sessionId)) {
+      // Check if loadSession is supported by the agent
+      if (this.acp.supportsLoadSession()) {
+        try {
+          console.log(`[Bridge] Loading historical session ${sessionId} in ACP with ${loadedMcpServers.length} MCP servers`);
+          await this.acp.loadSession(sessionId, session.cwd, loadedMcpServers);
+          this.state.loadedAcpSessions.add(sessionId);
+        } catch (err) {
+          console.error(`[Bridge] Failed to load session ${sessionId}:`, err);
+          // If load fails, try creating a new session instead
+          try {
+            console.log(`[Bridge] Creating new ACP session for ${sessionId}`);
+            const result = await this.acp.newSession(session.cwd, loadedMcpServers);
+            // Update the session ID in our state
+            this.state.sessions.delete(sessionId);
+            session.id = result.sessionId;
+            this.state.sessions.set(result.sessionId, session);
+            this.state.loadedAcpSessions.add(result.sessionId);
+          } catch (createErr) {
+            console.error(`[Bridge] Failed to create session:`, createErr);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Failed to load or create session" }));
+            return;
+          }
+        }
+      } else {
+        // Agent doesn't support loadSession, create new session instead
+        try {
+          console.log(`[Bridge] Agent doesn't support loadSession, creating new ACP session for ${sessionId}`);
+          const result = await this.acp.newSession(session.cwd, loadedMcpServers);
+          // Update the session ID in our state
+          this.state.sessions.delete(sessionId);
+          session.id = result.sessionId;
+          this.state.sessions.set(result.sessionId, session);
+          this.state.loadedAcpSessions.add(result.sessionId);
+        } catch (createErr) {
+          console.error(`[Bridge] Failed to create session:`, createErr);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Failed to create session" }));
+          return;
+        }
+      }
     }
 
     const body = await this.readBody(req);

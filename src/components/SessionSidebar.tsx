@@ -290,7 +290,11 @@ export function SessionSidebar(props: SessionSidebarProps) {
                         class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-all"
                         onClick={(e) => {
                           e.stopPropagation();
-                          props.onNewSession(project.project ? getProjectDirectory(project.project) : undefined);
+                          // Use project directory, or fallback to first session's directory
+                          const directory = project.project 
+                            ? getProjectDirectory(project.project) 
+                            : project.sessions[0]?.directory;
+                          props.onNewSession(directory);
                         }}
                         title={t().sidebar.newSession}
                       >

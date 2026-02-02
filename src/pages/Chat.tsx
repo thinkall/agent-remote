@@ -235,7 +235,11 @@ export default function Chat() {
       let currentSession = processedSessions[0];
       if (!currentSession) {
         logger.debug("[Init] No sessions found, creating new one");
-        const newSession = await client.createSession();
+        // Use the first valid project's directory when creating a new session
+        const defaultDirectory = validProjects.length > 0 ? validProjects[0].worktree : undefined;
+        const newSession = defaultDirectory
+          ? await client.createSessionInDirectory(defaultDirectory)
+          : await client.createSession();
         currentSession = {
           id: newSession.id,
           title: newSession.title || "",
@@ -291,10 +295,12 @@ export default function Chat() {
 
   // New session
   const handleNewSession = async (directory?: string) => {
-    logger.debug("[NewSession] Creating new session in directory:", directory);
+    // Use provided directory, or fall back to current session's directory
+    const targetDirectory = directory || client.getDirectory() || undefined;
+    logger.debug("[NewSession] Creating new session in directory:", targetDirectory);
     
-    const newSession = directory 
-      ? await client.createSessionInDirectory(directory)
+    const newSession = targetDirectory 
+      ? await client.createSessionInDirectory(targetDirectory)
       : await client.createSession();
     logger.debug("[NewSession] Created:", newSession);
 
