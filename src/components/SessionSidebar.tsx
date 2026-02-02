@@ -202,7 +202,8 @@ export function SessionSidebar(props: SessionSidebarProps) {
   };
 
   const getProjectDirectory = (project: Project.Info): string | undefined => {
-    return ProjectStore.getPath(project.id) || project.worktree || undefined;
+    // Prefer worktree from backend (source of truth) over localStorage cache
+    return project.worktree || ProjectStore.getPath(project.id) || undefined;
   };
 
   return (
@@ -294,6 +295,12 @@ export function SessionSidebar(props: SessionSidebarProps) {
                           const directory = project.project 
                             ? getProjectDirectory(project.project) 
                             : project.sessions[0]?.directory;
+                          console.log("[Sidebar] New session clicked:", { 
+                            projectID: project.projectID,
+                            hasProject: !!project.project,
+                            worktree: project.project?.worktree,
+                            resolvedDirectory: directory 
+                          });
                           props.onNewSession(directory);
                         }}
                         title={t().sidebar.newSession}

@@ -152,10 +152,13 @@ export default function Chat() {
       setMessageStore("part", msgInfo.id, sortedParts);
     }
 
-    // Store all messages, sorted by id
-    const sortedMessages = messageInfos.slice().sort((a, b) =>
-      a.id.localeCompare(b.id)
-    );
+    // Store all messages, sorted by creation time (fallback to id for same timestamp)
+    const sortedMessages = messageInfos.slice().sort((a, b) => {
+      const timeA = a.time?.created || 0;
+      const timeB = b.time?.created || 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.id.localeCompare(b.id);
+    });
     setMessageStore("message", sessionId, sortedMessages);
 
     setLoadingMessages(false);
@@ -297,7 +300,11 @@ export default function Chat() {
   const handleNewSession = async (directory?: string) => {
     // Use provided directory, or fall back to current session's directory
     const targetDirectory = directory || client.getDirectory() || undefined;
-    logger.debug("[NewSession] Creating new session in directory:", targetDirectory);
+    logger.debug("[NewSession] Creating new session:", { 
+      providedDirectory: directory, 
+      clientDirectory: client.getDirectory(),
+      targetDirectory 
+    });
     
     const newSession = targetDirectory 
       ? await client.createSessionInDirectory(targetDirectory)
