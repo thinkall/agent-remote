@@ -1077,16 +1077,24 @@ class CopilotBridgeServer {
       console.log(`[Bridge] Found ${directories.length} directories in session-state folder`);
       
       let newCount = 0;
-      let skippedAlreadyLoaded = 0;
+      let reloadedEvents = 0;
       let skippedNoWorkspace = 0;
       let skippedParseError = 0;
       
       for (const entry of directories) {
         const sessionId = entry.name;
         
-        // Skip if already loaded
+        // If already loaded, reload events only
         if (this.state.sessions.has(sessionId)) {
-          skippedAlreadyLoaded++;
+          const session = this.state.sessions.get(sessionId)!;
+          const sessionDir = join(COPILOT_SESSION_STATE_DIR, sessionId);
+          const oldMessageCount = session.messages.length;
+          session.messages = []; // Clear and reload
+          await this.loadSessionHistory(session, sessionDir);
+          if (session.messages.length !== oldMessageCount) {
+            reloadedEvents++;
+            console.log(`[Bridge] Reloaded events for session: ${sessionId} (${oldMessageCount} -> ${session.messages.length} messages)`);
+          }
           continue;
         }
         
@@ -1131,7 +1139,7 @@ class CopilotBridgeServer {
         }
       }
       
-      console.log(`[Bridge] Reload complete: ${newCount} new, ${skippedAlreadyLoaded} already loaded, ${skippedNoWorkspace} no workspace.yaml, ${skippedParseError} parse errors`);
+      console.log(`[Bridge] Reload complete: ${newCount} new, ${reloadedEvents} events reloaded, ${skippedNoWorkspace} no workspace.yaml, ${skippedParseError} parse errors`);
       console.log(`[Bridge] Total sessions now: ${this.state.sessions.size}`);
       
       // Return all sessions
