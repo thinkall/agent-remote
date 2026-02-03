@@ -408,6 +408,7 @@ export default function Chat() {
   // Reload all sessions
   const handleReloadSessions = async () => {
     logger.debug("[ReloadSessions] Reloading all sessions");
+    const currentSessionId = sessionStore.current;
     setSessionStore({ loading: true });
     
     try {
@@ -432,11 +433,21 @@ export default function Chat() {
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
 
+      // Preserve current session if it still exists, otherwise select first
+      const currentStillExists = currentSessionId && processedSessions.some(s => s.id === currentSessionId);
+      const newCurrentId = currentStillExists ? currentSessionId : (processedSessions[0]?.id || null);
+
       setSessionStore({
         list: processedSessions,
         projects: validProjects,
+        current: newCurrentId,
         loading: false,
       });
+
+      // Reload messages for current session
+      if (newCurrentId) {
+        await loadSessionMessages(newCurrentId);
+      }
 
       logger.debug("[ReloadSessions] Reloaded", processedSessions.length, "sessions");
     } catch (error) {
