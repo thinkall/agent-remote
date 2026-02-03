@@ -1069,18 +1069,26 @@ class CopilotBridgeServer {
    */
   private async handleReloadSessions(res: ServerResponse): Promise<void> {
     console.log(`[Bridge] Reloading sessions from ${COPILOT_SESSION_STATE_DIR}...`);
+    console.log(`[Bridge] Currently loaded sessions: ${this.state.sessions.size}`);
     
     try {
       const entries = await readdir(COPILOT_SESSION_STATE_DIR, { withFileTypes: true });
-      let newCount = 0;
+      const directories = entries.filter(e => e.isDirectory());
+      console.log(`[Bridge] Found ${directories.length} directories in session-state folder`);
       
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        
+      let newCount = 0;
+      let skippedAlreadyLoaded = 0;
+      let skippedNoWorkspace = 0;
+      let skippedParseError = 0;
+      
+      for (const entry of directories) {
         const sessionId = entry.name;
         
         // Skip if already loaded
-        if (this.state.sessions.has(sessionId)) continue;
+        if (this.state.sessions.has(sessionId)) {
+          skippedAlreadyLoaded++;
+          continue;
+        }
         
         const sessionDir = join(COPILOT_SESSION_STATE_DIR, sessionId);
         const workspaceFile = join(sessionDir, "workspace.yaml");
@@ -1112,14 +1120,19 @@ class CopilotBridgeServer {
             await this.loadSessionHistory(session, sessionDir);
             this.state.sessions.set(sessionId, session);
             newCount++;
+            console.log(`[Bridge] Loaded new session: ${sessionId} (${title})`);
+          } else {
+            skippedParseError++;
+            console.log(`[Bridge] Failed to parse workspace.yaml for session: ${sessionId}`);
           }
         } catch (err) {
-          // Skip sessions without workspace.yaml
-          continue;
+          skippedNoWorkspace++;
+          // Session might not have workspace.yaml yet
         }
       }
       
-      console.log(`[Bridge] Reloaded ${newCount} new sessions, total: ${this.state.sessions.size}`);
+      console.log(`[Bridge] Reload complete: ${newCount} new, ${skippedAlreadyLoaded} already loaded, ${skippedNoWorkspace} no workspace.yaml, ${skippedParseError} parse errors`);
+      console.log(`[Bridge] Total sessions now: ${this.state.sessions.size}`);
       
       // Return all sessions
       const sessions = Array.from(this.state.sessions.values());
