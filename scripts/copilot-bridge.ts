@@ -983,6 +983,8 @@ class CopilotBridgeServer {
       // Route requests
       if (path === "/global/event" && method === "GET") {
         this.handleSSE(req, res);
+      } else if (path === "/session/reload" && method === "POST") {
+        await this.handleReloadSessions(res);
       } else if (path === "/session" && method === "GET") {
         this.handleListSessions(res, directoryHeader ? directory : null);
       } else if (path === "/session" && method === "POST") {
@@ -1060,6 +1062,76 @@ class CopilotBridgeServer {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));
+  }
+
+  /**
+   * Reload sessions from disk, merging new sessions with existing ones
+   */
+  private async handleReloadSessions(res: ServerResponse): Promise<void> {
+    console.log(`[Bridge] Reloading sessions from ${COPILOT_SESSION_STATE_DIR}...`);
+    
+    try {
+      const entries = await readdir(COPILOT_SESSION_STATE_DIR, { withFileTypes: true });
+      let newCount = 0;
+      
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        
+        const sessionId = entry.name;
+        
+        // Skip if already loaded
+        if (this.state.sessions.has(sessionId)) continue;
+        
+        const sessionDir = join(COPILOT_SESSION_STATE_DIR, sessionId);
+        const workspaceFile = join(sessionDir, "workspace.yaml");
+        
+        try {
+          const content = await readFile(workspaceFile, "utf-8");
+          const sessionData = this.parseWorkspaceYaml(content);
+          
+          if (sessionData) {
+            const cwd = sessionData.cwd || sessionData.git_root || COPILOT_CWD;
+            let title = sessionData.summary;
+            if (!title) {
+              const createdDate = sessionData.created_at 
+                ? new Date(sessionData.created_at).toLocaleString()
+                : new Date().toLocaleString();
+              title = `Session - ${createdDate}`;
+            }
+            
+            const session: SessionInfo = {
+              id: sessionId,
+              cwd,
+              projectID: generateProjectID(cwd),
+              title,
+              createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
+              updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
+              messages: [],
+            };
+            
+            await this.loadSessionHistory(session, sessionDir);
+            this.state.sessions.set(sessionId, session);
+            newCount++;
+          }
+        } catch (err) {
+          // Skip sessions without workspace.yaml
+          continue;
+        }
+      }
+      
+      console.log(`[Bridge] Reloaded ${newCount} new sessions, total: ${this.state.sessions.size}`);
+      
+      // Return all sessions
+      const sessions = Array.from(this.state.sessions.values());
+      const result = sessions.map((s) => this.convertSessionToOpenCode(s));
+      
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      console.error("[Bridge] Failed to reload sessions:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to reload sessions" }));
+    }
   }
 
   private async handleCreateSession(

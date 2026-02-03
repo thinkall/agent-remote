@@ -97,6 +97,29 @@ export class OpenCodeClient {
   }
 
   /**
+   * Reload sessions from disk (for Copilot bridge).
+   * This triggers the backend to re-scan the session state folder.
+   */
+  async reloadSessions(): Promise<Session.Info[]> {
+    const response = await fetch(`${this.baseUrl}/session/reload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      // Fallback to listAllSessions if reload endpoint doesn't exist (OpenCode backend)
+      if (response.status === 404) {
+        return this.listAllSessions();
+      }
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * List sessions for a specific directory.
    * Uses explicit header instead of relying on currentDirectory.
    */

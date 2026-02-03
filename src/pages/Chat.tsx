@@ -415,7 +415,8 @@ export default function Chat() {
       const hiddenIds = ProjectStore.getHiddenIds();
       const validProjects = projects.filter((p) => !ProjectStore.isHidden(p.id));
       
-      const sessions = await client.listAllSessions();
+      // Use reloadSessions which triggers disk re-scan on Copilot bridge
+      const sessions = await client.reloadSessions();
       const processedSessions = sessions.map((s) => ({
         id: s.id,
         title: s.title || "",
