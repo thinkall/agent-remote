@@ -101,22 +101,29 @@ export class OpenCodeClient {
    * This triggers the backend to re-scan the session state folder.
    */
   async reloadSessions(): Promise<Session.Info[]> {
-    const response = await fetch(`${this.baseUrl}/session/reload`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/session/reload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      // Fallback to listAllSessions if reload endpoint doesn't exist (OpenCode backend)
-      if (response.status === 404) {
-        return this.listAllSessions();
+      if (!response.ok) {
+        // Fallback to listAllSessions if reload endpoint doesn't exist (OpenCode backend)
+        if (response.status === 404) {
+          logger.debug("[OpenCodeClient] /session/reload not available, falling back to listAllSessions");
+          return this.listAllSessions();
+        }
+        throw new Error(`API Error: ${response.statusText}`);
       }
-      throw new Error(`API Error: ${response.statusText}`);
-    }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      // Network error or other issue - fallback to listAllSessions
+      logger.debug("[OpenCodeClient] reloadSessions failed, falling back to listAllSessions:", error);
+      return this.listAllSessions();
+    }
   }
 
   /**
