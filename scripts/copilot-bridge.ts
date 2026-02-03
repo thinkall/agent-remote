@@ -67,6 +67,9 @@ let loadedMcpServers: ACP.McpServer[] = [];
 
 interface SessionInfo {
   id: string;
+  acpSessionId?: string; // The ACP-side session ID, may differ from id for historical sessions
+  historySent?: boolean; // Whether conversation history has been sent to ACP
+  isHistorical?: boolean; // Whether this is a historical session loaded from disk
   cwd: string;
   projectID?: string;
   title?: string;
@@ -169,14 +172,21 @@ class ACPClient extends EventEmitter {
   }
 
   private handleMessage(message: ACP.JsonRpcMessage): void {
+    // Log all incoming messages for debugging
+    console.log("[ACP] Received message:", JSON.stringify(message).slice(0, 500));
+    
     // Response to a request we sent
     if ("id" in message && message.id !== undefined && !("method" in message)) {
       const response = message as ACP.JsonRpcResponse;
+      if (response.error) {
+        console.error("[ACP] Error response:", JSON.stringify(response.error));
+      }
       const pending = this.pendingRequests.get(response.id);
       if (pending) {
         this.pendingRequests.delete(response.id);
         if (response.error) {
-          pending.reject(new Error(response.error.message));
+          const errMsg = response.error.message || response.error.code || JSON.stringify(response.error);
+          pending.reject(new Error(String(errMsg)));
         } else {
           pending.resolve(response.result);
         }
@@ -429,10 +439,9 @@ class CopilotBridgeServer {
           
           if (sessionData) {
             const cwd = sessionData.cwd || sessionData.git_root || COPILOT_CWD;
-            // Use summary as title if available, otherwise use a readable format
+            // Use summary as title if available, otherwise use date-based title
             let title = sessionData.summary;
             if (!title) {
-              // Fall back to date-based title
               const createdDate = sessionData.created_at 
                 ? new Date(sessionData.created_at).toLocaleString()
                 : new Date().toLocaleString();
@@ -447,6 +456,7 @@ class CopilotBridgeServer {
               createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
               updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
               messages: [],
+              isHistorical: true, // Mark as historical session loaded from disk
             };
             
             // Load chat history from events.jsonl
@@ -618,12 +628,47 @@ class CopilotBridgeServer {
       const result: Record<string, string> = {};
       const lines = content.split("\n");
       
-      for (const line of lines) {
+      let currentKey: string | null = null;
+      let multilineValue: string[] = [];
+      let multilineIndent = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Check if this is a continuation of a multiline value
+        if (currentKey !== null) {
+          // Check if line starts with enough whitespace to be part of multiline
+          const lineIndent = line.search(/\S/);
+          if (lineIndent >= multilineIndent && lineIndent > 0) {
+            // This is part of the multiline value
+            multilineValue.push(line.slice(multilineIndent));
+            continue;
+          } else {
+            // Multiline ended, save the value
+            result[currentKey] = multilineValue.join("\n").trim();
+            currentKey = null;
+            multilineValue = [];
+          }
+        }
+        
         const colonIndex = line.indexOf(":");
         if (colonIndex === -1) continue;
         
         const key = line.slice(0, colonIndex).trim();
         let value = line.slice(colonIndex + 1).trim();
+        
+        // Check for multiline indicators (|- or |)
+        if (value === "|-" || value === "|" || value === ">-" || value === ">") {
+          currentKey = key;
+          multilineValue = [];
+          // Determine indent from next line
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1];
+            multilineIndent = nextLine.search(/\S/);
+            if (multilineIndent === -1) multilineIndent = 2; // default
+          }
+          continue;
+        }
         
         // Remove quotes if present
         if ((value.startsWith('"') && value.endsWith('"')) ||
@@ -632,6 +677,11 @@ class CopilotBridgeServer {
         }
         
         result[key] = value;
+      }
+      
+      // Handle case where file ends with multiline value
+      if (currentKey !== null && multilineValue.length > 0) {
+        result[currentKey] = multilineValue.join("\n").trim();
       }
       
       return result;
@@ -1107,6 +1157,7 @@ class CopilotBridgeServer {
           
           if (sessionData) {
             const cwd = sessionData.cwd || sessionData.git_root || COPILOT_CWD;
+            // Use summary as title if available, otherwise use date-based title
             let title = sessionData.summary;
             if (!title) {
               const createdDate = sessionData.created_at 
@@ -1123,6 +1174,7 @@ class CopilotBridgeServer {
               createdAt: sessionData.created_at ? new Date(sessionData.created_at).getTime() : Date.now(),
               updatedAt: sessionData.updated_at ? new Date(sessionData.updated_at).getTime() : Date.now(),
               messages: [],
+              isHistorical: true, // Mark as historical session loaded from disk
             };
             
             await this.loadSessionHistory(session, sessionDir);
@@ -1278,48 +1330,46 @@ class CopilotBridgeServer {
       return;
     }
 
-    // Load session in ACP if it's a historical session that hasn't been loaded yet
-    if (!this.state.loadedAcpSessions.has(sessionId)) {
+    // If this is a historical session, create a NEW session to continue
+    // Keep the old session as read-only history with OLD marker
+    let activeSession = session;
+    let needsHistoryContext = false;
+    
+    if (session.isHistorical && !this.state.loadedAcpSessions.has(sessionId)) {
       // Check if loadSession is supported by the agent
       if (this.acp.supportsLoadSession()) {
         try {
           console.log(`[Bridge] Loading historical session ${sessionId} in ACP with ${loadedMcpServers.length} MCP servers`);
           await this.acp.loadSession(sessionId, session.cwd, loadedMcpServers);
+          session.isHistorical = false; // Session successfully loaded, no longer historical
           this.state.loadedAcpSessions.add(sessionId);
         } catch (err) {
           console.error(`[Bridge] Failed to load session ${sessionId}:`, err);
-          // If load fails, try creating a new session instead
-          try {
-            console.log(`[Bridge] Creating new ACP session for ${sessionId}`);
-            const result = await this.acp.newSession(session.cwd, loadedMcpServers);
-            // Update the session ID in our state
-            this.state.sessions.delete(sessionId);
-            session.id = result.sessionId;
-            this.state.sessions.set(result.sessionId, session);
-            this.state.loadedAcpSessions.add(result.sessionId);
-          } catch (createErr) {
-            console.error(`[Bridge] Failed to create session:`, createErr);
+          // Create a NEW session to continue, keep old one as historical
+          const newSession = await this.createContinuationSession(session);
+          if (!newSession) {
             res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Failed to load or create session" }));
+            res.end(JSON.stringify({ error: "Failed to create continuation session" }));
             return;
           }
+          activeSession = newSession;
+          needsHistoryContext = true;
+          // Emit session created event so frontend knows about the new session
+          this.emitSSE("session.updated", this.convertSessionToOpenCode(newSession));
         }
       } else {
-        // Agent doesn't support loadSession, create new session instead
-        try {
-          console.log(`[Bridge] Agent doesn't support loadSession, creating new ACP session for ${sessionId}`);
-          const result = await this.acp.newSession(session.cwd, loadedMcpServers);
-          // Update the session ID in our state
-          this.state.sessions.delete(sessionId);
-          session.id = result.sessionId;
-          this.state.sessions.set(result.sessionId, session);
-          this.state.loadedAcpSessions.add(result.sessionId);
-        } catch (createErr) {
-          console.error(`[Bridge] Failed to create session:`, createErr);
+        // Agent doesn't support loadSession, create a NEW session to continue
+        console.log(`[Bridge] Agent doesn't support loadSession, creating continuation session for ${sessionId}`);
+        const newSession = await this.createContinuationSession(session);
+        if (!newSession) {
           res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Failed to create session" }));
+          res.end(JSON.stringify({ error: "Failed to create continuation session" }));
           return;
         }
+        activeSession = newSession;
+        needsHistoryContext = true;
+        // Emit session created event so frontend knows about the new session
+        this.emitSSE("session.updated", this.convertSessionToOpenCode(newSession));
       }
     }
 
@@ -1330,24 +1380,31 @@ class CopilotBridgeServer {
     const textPart = parts.find((p) => p.type === "text");
     const text = textPart?.text || "";
 
-    // Create user message
+    // Build prompt with history context if needed
+    let promptText = text;
+    if (needsHistoryContext && session.messages.length > 0) {
+      promptText = this.buildHistoryContextPrompt(session, text);
+      console.log(`[Bridge] Including ${session.messages.length} messages of history context`);
+    }
+
+    // Create user message in the ACTIVE session
     const userMessage: MessageInfo = {
       id: this.state.generateMessageId(),
-      sessionID: sessionId,
+      sessionID: activeSession.id,
       role: "user",
       time: { created: Date.now(), completed: Date.now() },
       parts: [
         {
           id: this.state.generatePartId(),
           messageID: "",
-          sessionID: sessionId,
+          sessionID: activeSession.id,
           type: "text",
           text,
         },
       ],
     };
     userMessage.parts[0].messageID = userMessage.id;
-    session.messages.push(userMessage);
+    activeSession.messages.push(userMessage);
 
     // Emit user message info
     this.emitSSE("message.updated", {
@@ -1361,10 +1418,10 @@ class CopilotBridgeServer {
 
     // Send to Copilot (don't await - let it stream)
     this.acp
-      .prompt(sessionId, [{ type: "text", text }])
+      .prompt(activeSession.id, [{ type: "text", text: promptText }])
       .then((result) => {
         // Prompt completed
-        const assistantMessage = session.messages.find(
+        const assistantMessage = activeSession.messages.find(
           (m) => m.id === this.state.currentMessageId && m.role === "assistant"
         );
         if (assistantMessage) {
@@ -1379,8 +1436,138 @@ class CopilotBridgeServer {
         console.error("[Bridge] Prompt error:", err);
       });
 
+    // Return the active session ID so frontend can switch to it if different
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "ok" }));
+    res.end(JSON.stringify({ 
+      status: "ok",
+      sessionId: activeSession.id,
+      isNewSession: activeSession.id !== sessionId
+    }));
+  }
+
+  /**
+   * Create a new session to continue a historical one
+   */
+  private async createContinuationSession(historicalSession: SessionInfo): Promise<SessionInfo | null> {
+    try {
+      const result = await this.acp.newSession(historicalSession.cwd, loadedMcpServers);
+      
+      const newSession: SessionInfo = {
+        id: result.sessionId,
+        cwd: historicalSession.cwd,
+        projectID: historicalSession.projectID,
+        title: historicalSession.title, // Keep the same title
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [],
+        isHistorical: false, // New session is active
+      };
+      
+      this.state.sessions.set(newSession.id, newSession);
+      this.state.loadedAcpSessions.add(newSession.id);
+      
+      console.log(`[Bridge] Created continuation session ${newSession.id} for historical session ${historicalSession.id}`);
+      return newSession;
+    } catch (err) {
+      console.error(`[Bridge] Failed to create continuation session:`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Build a prompt that includes conversation history context
+   */
+  private buildHistoryContextPrompt(session: SessionInfo, newMessage: string): string {
+    const historyLines: string[] = [];
+    historyLines.push("<conversation_history>");
+    historyLines.push("The following is the previous conversation history from this session. Please continue from where we left off.");
+    historyLines.push("Note: Tool calls and their results are included to give you context of what was done.");
+    historyLines.push("");
+    
+    for (const msg of session.messages) {
+      const role = msg.role === "user" ? "User" : "Assistant";
+      historyLines.push(`### [${role}]`);
+      
+      for (const part of msg.parts) {
+        switch (part.type) {
+          case "text":
+            if (typeof part.text === "string" && part.text.trim()) {
+              historyLines.push(part.text);
+            }
+            break;
+            
+          case "thinking":
+            // Skip thinking/reasoning - it's internal
+            break;
+            
+          case "tool-invocation": {
+            const toolInvocation = part.toolInvocation as {
+              toolCallId?: string;
+              toolName?: string;
+              args?: Record<string, unknown>;
+            } | undefined;
+            const state = part.state as {
+              status?: string;
+              output?: unknown;
+            } | undefined;
+            
+            if (toolInvocation) {
+              historyLines.push("");
+              historyLines.push(`**Tool Call: ${toolInvocation.toolName || "unknown"}**`);
+              
+              // Include relevant args (but truncate long values)
+              if (toolInvocation.args) {
+                const argsStr = JSON.stringify(toolInvocation.args, (key, value) => {
+                  if (typeof value === "string" && value.length > 500) {
+                    return value.substring(0, 500) + "... [truncated]";
+                  }
+                  return value;
+                }, 2);
+                if (argsStr.length < 2000) {
+                  historyLines.push("Arguments:");
+                  historyLines.push("```json");
+                  historyLines.push(argsStr);
+                  historyLines.push("```");
+                } else {
+                  historyLines.push("Arguments: [too large to include]");
+                }
+              }
+              
+              // Include tool result summary
+              if (state?.status === "completed" && state.output !== undefined) {
+                const outputStr = typeof state.output === "string" 
+                  ? state.output 
+                  : JSON.stringify(state.output);
+                
+                if (outputStr.length < 1000) {
+                  historyLines.push("Result:");
+                  historyLines.push("```");
+                  historyLines.push(outputStr);
+                  historyLines.push("```");
+                } else {
+                  // Truncate long outputs
+                  historyLines.push("Result (truncated):");
+                  historyLines.push("```");
+                  historyLines.push(outputStr.substring(0, 1000) + "... [truncated]");
+                  historyLines.push("```");
+                }
+              }
+              historyLines.push("");
+            }
+            break;
+          }
+        }
+      }
+      
+      historyLines.push("");
+    }
+    
+    historyLines.push("</conversation_history>");
+    historyLines.push("");
+    historyLines.push("### [User] (new message)");
+    historyLines.push(newMessage);
+    
+    return historyLines.join("\n");
   }
 
   private handleGetParts(
@@ -1586,6 +1773,7 @@ class CopilotBridgeServer {
         created: session.createdAt,
         updated: session.updatedAt,
       },
+      isHistorical: session.isHistorical || false,
     };
   }
 

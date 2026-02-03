@@ -177,6 +177,7 @@ export namespace Session {
     share?: {
       url: string;
     };
+    isHistorical?: boolean;      // Whether this is a historical session not yet active in current bridge
   }
 }
 

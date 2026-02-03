@@ -422,9 +422,19 @@ export function SessionSidebar(props: SessionSidebarProps) {
                                       />
                                     </Show>
                                     <Show when={!isEditing()}>
-                                      <span class="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-                                        {formatDate(session.updatedAt)}
-                                      </span>
+                                      <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <Show when={session.isHistorical}>
+                                          <span 
+                                            class="text-[9px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                                            title="Historical session - will create a new session with conversation context when continued"
+                                          >
+                                            OLD
+                                          </span>
+                                        </Show>
+                                        <span class="text-[10px] text-gray-400 dark:text-gray-500">
+                                          {formatDate(session.updatedAt)}
+                                        </span>
+                                      </div>
                                     </Show>
                                   </div>
 

@@ -14,6 +14,7 @@ export interface SessionInfo {
     deletions: number;
     files: number;
   };
+  isHistorical?: boolean;  // Whether this is a historical session not yet active in current bridge
 }
 
 export interface ProjectExpandState {

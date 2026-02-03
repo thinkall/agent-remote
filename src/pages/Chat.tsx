@@ -229,6 +229,7 @@ export default function Chat() {
         createdAt: new Date(s.time.created).toISOString(),
         updatedAt: new Date(s.time.updated).toISOString(),
         summary: s.summary,
+        isHistorical: s.isHistorical,
       }));
 
       processedSessions.sort((a, b) =>
@@ -252,6 +253,7 @@ export default function Chat() {
           createdAt: new Date(newSession.time.created).toISOString(),
           updatedAt: new Date(newSession.time.updated).toISOString(),
           summary: newSession.summary,
+          isHistorical: false,
         };
         processedSessions.push(currentSession);
       }
@@ -427,6 +429,7 @@ export default function Chat() {
         createdAt: new Date(s.time.created).toISOString(),
         updatedAt: new Date(s.time.updated).toISOString(),
         summary: s.summary,
+        isHistorical: s.isHistorical,
       }));
 
       processedSessions.sort((a, b) =>
