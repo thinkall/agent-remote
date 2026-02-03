@@ -122,6 +122,7 @@ export interface LocaleDict {
     deleteConfirm: string;
     deleteSession: string;
     renameSession: string;
+    reloadSessions: string;
     justNow: string;
     minutesAgo: string;
     hoursAgo: string;
@@ -399,6 +400,7 @@ export const en: LocaleDict = {
     deleteConfirm: "Are you sure you want to delete this session?",
     deleteSession: "Delete session",
     renameSession: "Rename session",
+    reloadSessions: "Reload sessions",
     justNow: "just now",
     minutesAgo: "{count} min ago",
     hoursAgo: "{count}h ago",

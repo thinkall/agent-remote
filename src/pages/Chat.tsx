@@ -405,6 +405,45 @@ export default function Chat() {
     setDeleteProjectInfo(null);
   };
 
+  // Reload all sessions
+  const handleReloadSessions = async () => {
+    logger.debug("[ReloadSessions] Reloading all sessions");
+    setSessionStore({ loading: true });
+    
+    try {
+      const projects = await client.listProjects();
+      const hiddenIds = ProjectStore.getHiddenIds();
+      const validProjects = projects.filter((p) => !ProjectStore.isHidden(p.id));
+      
+      const sessions = await client.listAllSessions();
+      const processedSessions = sessions.map((s) => ({
+        id: s.id,
+        title: s.title || "",
+        directory: s.directory || "",
+        projectID: s.projectID,
+        parentID: s.parentID,
+        createdAt: new Date(s.time.created).toISOString(),
+        updatedAt: new Date(s.time.updated).toISOString(),
+        summary: s.summary,
+      }));
+
+      processedSessions.sort((a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+
+      setSessionStore({
+        list: processedSessions,
+        projects: validProjects,
+        loading: false,
+      });
+
+      logger.debug("[ReloadSessions] Reloaded", processedSessions.length, "sessions");
+    } catch (error) {
+      logger.error("[ReloadSessions] Failed:", error);
+      setSessionStore({ loading: false });
+    }
+  };
+
   const handleAddProject = async (directory: string) => {
     logger.debug("[AddProject] Initializing project for directory:", directory);
     
@@ -748,6 +787,7 @@ export default function Chat() {
                 setDeleteProjectInfo({ projectID, projectName, sessionCount })
               }
               onAddProject={() => setShowAddProjectModal(true)}
+              onReloadSessions={handleReloadSessions}
             />
           </Show>
         </div>

@@ -15,6 +15,7 @@ interface SessionSidebarProps {
   onRenameSession: (sessionId: string, newTitle: string) => void;
   onDeleteProjectSessions: (projectID: string, projectName: string, sessionCount: number) => void;
   onAddProject: () => void;
+  onReloadSessions: () => void;
 }
 
 // Project grouping data structure
@@ -516,10 +517,32 @@ export function SessionSidebar(props: SessionSidebarProps) {
         <CopilotCliHistory />
       </div>
 
-      <div class="px-2 py-2 border-t border-gray-200 dark:border-zinc-800">
+      <div class="px-2 py-2 border-t border-gray-200 dark:border-zinc-800 flex gap-2">
+        <button
+          onClick={props.onReloadSessions}
+          class="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors"
+          title={t().sidebar.reloadSessions}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M8 16H3v5" />
+          </svg>
+        </button>
         <button
           onClick={props.onAddProject}
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors"
+          class="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
